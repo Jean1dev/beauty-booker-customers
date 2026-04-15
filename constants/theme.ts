@@ -66,6 +66,14 @@ export const Colors = {
   },
 };
 
+export const TabBarMetrics = {
+  paddingTop: 8,
+  ...Platform.select({
+    ios: { height: 84, paddingBottom: 24 },
+    default: { height: 64, paddingBottom: 8 },
+  }),
+};
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */

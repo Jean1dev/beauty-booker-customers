@@ -174,6 +174,94 @@ import { Image } from 'expo-image';
 
 ---
 
+## Firebase
+
+### SDK utilizado
+
+Este projeto usa o **Firebase JS SDK** (`firebase`) — não o `@react-native-firebase`.
+
+Isso significa um único código para as três plataformas. Nunca instale ou sugira `@react-native-firebase`.
+
+```bash
+# ✅ Correto
+npm install firebase
+
+# ❌ Nunca usar neste projeto
+npm install @react-native-firebase
+```
+
+### Estrutura do projeto no console Firebase
+
+O projeto tem **um único projeto Firebase** com três apps registrados:
+
+| App registrado | Arquivo gerado | Onde vai no projeto |
+|---|---|---|
+| Web (`</>`) | objeto `firebaseConfig` | copiado para `.env` |
+| Android | `google-services.json` | raiz do projeto |
+| iOS | `GoogleService-Info.plist` | raiz do projeto |
+
+> Os arquivos `google-services.json` e `GoogleService-Info.plist` são necessários apenas para builds nativos (EAS Build) e notificações push. Para Auth, Firestore e Storage via JS SDK, apenas o `firebaseConfig` da web é utilizado.
+
+### Inicialização — `services/firebase.ts`
+
+Este é o único arquivo de configuração Firebase do projeto. Nunca inicialize o Firebase em outro lugar.
+
+```ts
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import {
+  initializeAuth,
+  getReactNativePersistence,
+  browserLocalPersistence,
+} from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+const firebaseConfig = {
+  apiKey:            process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain:        process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId:         process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket:     process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+};
+
+const app = initializeApp(firebaseConfig);
+
+// Única diferença por plataforma: onde a sessão do usuário é persistida
+export const auth = initializeAuth(app, {
+  persistence: Platform.OS === 'web'
+    ? browserLocalPersistence       // web → localStorage
+    : getReactNativePersistence(AsyncStorage), // mobile → AsyncStorage
+});
+
+export const db      = getFirestore(app);
+export const storage = getStorage(app);
+```
+
+### Variáveis de ambiente
+
+O Expo exige o prefixo `EXPO_PUBLIC_` para expor variáveis ao cliente.
+
+```bash
+# .env  (nunca subir para o repositório — adicionar no .gitignore)
+EXPO_PUBLIC_FIREBASE_API_KEY=AIza...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=seuapp.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=seuapp
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=seuapp.appspot.com
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+EXPO_PUBLIC_FIREBASE_APP_ID=1:123...
+```
+
+### Regras de uso
+
+- Sempre importe `auth`, `db` e `storage` de `@/services/firebase` — nunca chame `initializeApp` em outro arquivo
+- Nunca use `getAuth()` sem argumento — use sempre o `auth` exportado de `services/firebase.ts`
+- Um usuário autenticado na web e no mobile compartilha a mesma conta (mesmo projeto Firebase)
+
+---
+
 ## Instalação de dependências
 
 ```bash
@@ -209,10 +297,13 @@ if (Platform.OS === 'web') {
 
 ## Checklist antes de entregar qualquer código
 
-- [ ] Testou mentalmente se o código funciona nas 3 plataformas?
 - [ ] Usou alguma API que não existe na web? → mover para `platform/`
 - [ ] Usou `Alert.alert()` diretamente? → usar `showAlert` de `platform/alert`
 - [ ] Usou `window`, `document` ou qualquer API do browser? → abstrair
 - [ ] Usou `npm install` para pacote nativo? → trocar por `npx expo install`
 - [ ] Usou CSS string como estilo? → trocar por `StyleSheet`
 - [ ] Criou navegador manualmente? → usar Expo Router
+- [ ] Usou `@react-native-firebase`? → usar Firebase JS SDK (`firebase`)
+- [ ] Inicializou Firebase fora de `services/firebase.ts`? → centralizar
+- [ ] Usou `getAuth()` sem argumento? → importar `auth` de `services/firebase`
+- [ ] Adicionou chave Firebase no código? → mover para `.env` com prefixo `EXPO_PUBLIC_`
