@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "beaulty-book-customers",
-    "slug": "beaulty-book-customers",
+    "slug": "beauty-book-customers",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -43,6 +43,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "937cf1d1-0ecb-4092-975c-1d9ab5e6f5a5"
+      }
+    },
+    "owner": "jeanlucafp"
   }
 }
