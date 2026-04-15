@@ -1,29 +1,68 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+export const Palette = {
+  rose: {
+    50:  '#FDF6F4',
+    100: '#F9E8E3',
+    200: '#F2CDCA',
+    300: '#E8A8A3',
+    400: '#D97E7A',
+    500: '#C45C58',
+    600: '#A83D3A',
+    700: '#8A2927',
+    800: '#6B1C1A',
+    900: '#4A1210',
+  },
+  gold: {
+    100: '#FAF3E0',
+    200: '#F0DFA8',
+    300: '#E2C56A',
+    400: '#C9A84C',
+    500: '#A8863A',
+    600: '#856729',
+  },
+  neutral: {
+    50:  '#FAFAF9',
+    100: '#F4F3F1',
+    200: '#E8E6E1',
+    300: '#CCC9C0',
+    400: '#A09C91',
+    500: '#736F65',
+    600: '#504D45',
+    700: '#363330',
+    800: '#242220',
+    900: '#141210',
+  },
+};
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: Palette.neutral[900],
+    background: Palette.neutral[50],
+    surface: '#FFFFFF',
+    subtle: Palette.neutral[100],
+    border: Palette.neutral[200],
+    tint: Palette.rose[500],
+    icon: Palette.neutral[400],
+    tabIconDefault: Palette.neutral[400],
+    tabIconSelected: Palette.rose[500],
+    tabBarBackground: '#FFFFFF',
+    accent: Palette.rose[500],
+    accentLight: Palette.rose[100],
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#F5F2EE',
+    background: Palette.neutral[900],
+    surface: Palette.neutral[800],
+    subtle: Palette.neutral[700],
+    border: Palette.neutral[700],
+    tint: Palette.rose[400],
+    icon: Palette.neutral[400],
+    tabIconDefault: Palette.neutral[500],
+    tabIconSelected: Palette.rose[400],
+    tabBarBackground: Palette.neutral[800],
+    accent: Palette.rose[400],
+    accentLight: 'rgba(196,92,88,0.15)',
   },
 };
 
