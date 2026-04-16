@@ -6,10 +6,24 @@ import { useEffect } from 'react';
 import { showAlert } from '@/platform/alert';
 import { auth } from '@/services/firebase';
 
-const webClientId: string = Constants.expoConfig?.extra?.googleWebClientId ?? '';
+const extra = Constants.expoConfig?.extra as
+  | {
+      googleWebClientId?: string;
+      googleIosClientId?: string;
+      googleAndroidClientId?: string;
+    }
+  | undefined;
+
+const webClientId = extra?.googleWebClientId ?? '';
+const iosClientId = extra?.googleIosClientId ?? '';
+const androidClientId = extra?.googleAndroidClientId ?? '';
 
 export function useGoogleSignIn() {
-  const [request, response, promptAsync] = Google.useAuthRequest({ webClientId });
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId,
+    iosClientId: iosClientId || webClientId,
+    androidClientId: androidClientId || webClientId,
+  });
 
   useEffect(() => {
     if (response?.type !== 'success') return;
