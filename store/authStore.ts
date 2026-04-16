@@ -1,13 +1,13 @@
-import { User } from 'firebase/auth';
 import { create } from 'zustand';
 
+import type { AuthUser } from '@/platform/auth';
 import { CustomerProfile } from '@/types/customer';
 
 interface AuthState {
-  user:       User | null;
+  user:       AuthUser | null;
   profile:    CustomerProfile | null;
   loading:    boolean;
-  setUser:    (user: User | null) => void;
+  setUser:    (user: AuthUser | null) => void;
   setProfile: (profile: CustomerProfile | null) => void;
   setLoading: (loading: boolean) => void;
 }

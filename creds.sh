@@ -8,3 +8,8 @@ eas build --platform ios --profile production
 eas build --platform ios --profile preview
 
 eas submit
+
+eas secret:create \
+  --name GOOGLE_SERVICES_PLIST \
+  --type file \
+  --value ./GoogleService-Info.plist

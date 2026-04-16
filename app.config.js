@@ -1,124 +1,25 @@
 import fs from 'fs';
-import path from 'path';
 
-const FILES = {
-  googleServicesJson: 'google-services.json',
-  googleServicesAndroid: path.join('android', 'app', 'google-services.json'),
-  iosPlist: 'GoogleService-Info.plist',
-};
+const ANDROID_GOOGLE_SERVICES = './google-services.json';
+const IOS_GOOGLE_SERVICES = './GoogleService-Info.plist';
 
-const OAUTH_CLIENT_TYPE = { ANDROID: 1, IOS: 2, WEB: 3 };
-
-function stripBom(text) {
-  return text.replace(/^\uFEFF/, '');
-}
-
-function jsonToCanonicalString(parsed) {
-  if (parsed !== null && typeof parsed === 'object') {
-    return JSON.stringify(parsed);
-  }
-  return null;
-}
-
-function tryParseJsonToCanonical(raw) {
-  try {
-    return jsonToCanonicalString(JSON.parse(raw));
-  } catch {
-    return null;
-  }
-}
-
-function tryDecodeBase64JsonToCanonical(trimmed) {
-  try {
-    const decoded = Buffer.from(trimmed.replace(/\s/g, ''), 'base64').toString('utf8');
-    return tryParseJsonToCanonical(stripBom(decoded).trim());
-  } catch {
-    return null;
-  }
-}
-
-function normalizeGoogleServicesJson(raw) {
-  if (raw == null || typeof raw !== 'string') return null;
-  const trimmed = stripBom(raw).trim();
-  if (!trimmed) return null;
-
-  const asJson = tryParseJsonToCanonical(trimmed);
-  if (asJson) return asJson;
-
-  return tryDecodeBase64JsonToCanonical(trimmed);
-}
-
-function readUtf8IfExists(relativePath) {
-  if (!fs.existsSync(relativePath)) return null;
-  return fs.readFileSync(relativePath, 'utf8');
-}
-
-function writeIosPlistFromEnvIfPresent(plistEnv) {
-  if (!plistEnv) return;
-  fs.writeFileSync(FILES.iosPlist, plistEnv, 'utf8');
-}
-
-function loadCanonicalGoogleServicesJson() {
-  const fromEnv = process.env.GOOGLE_SERVICES_JSON
-    ? normalizeGoogleServicesJson(process.env.GOOGLE_SERVICES_JSON)
-    : null;
-  if (fromEnv) {
-    persistCanonicalGoogleServices(fromEnv);
-    return fromEnv;
+export default () => {
+  if (process.env.GOOGLE_SERVICES_JSON) {
+    fs.writeFileSync(ANDROID_GOOGLE_SERVICES, process.env.GOOGLE_SERVICES_JSON);
   }
 
-  const fromRoot = normalizeGoogleServicesJson(readUtf8IfExists(FILES.googleServicesJson) ?? '');
-  if (fromRoot) {
-    persistCanonicalGoogleServices(fromRoot);
-    return fromRoot;
+  if (process.env.GOOGLE_SERVICES_PLIST) {
+    fs.writeFileSync(IOS_GOOGLE_SERVICES, process.env.GOOGLE_SERVICES_PLIST);
   }
 
-  const fromAndroid = normalizeGoogleServicesJson(
-    readUtf8IfExists(FILES.googleServicesAndroid) ?? '',
-  );
-  if (fromAndroid) {
-    persistCanonicalGoogleServices(fromAndroid);
-    return fromAndroid;
-  }
+  const androidGoogleServices = fs.existsSync(ANDROID_GOOGLE_SERVICES)
+    ? ANDROID_GOOGLE_SERVICES
+    : undefined;
 
-  return null;
-}
+  const iosGoogleServices = fs.existsSync(IOS_GOOGLE_SERVICES)
+    ? IOS_GOOGLE_SERVICES
+    : undefined;
 
-function persistCanonicalGoogleServices(canonicalJson) {
-  fs.writeFileSync(FILES.googleServicesJson, canonicalJson, 'utf8');
-}
-
-function extractOAuthClientIds(canonicalGoogleServicesJson) {
-  const empty = {
-    web: '',
-    ios: '',
-    android: '',
-  };
-  if (!canonicalGoogleServicesJson) return empty;
-  try {
-    const data = JSON.parse(canonicalGoogleServicesJson);
-    const oauthClients = data.client?.[0]?.oauth_client ?? [];
-    const idFor = (type) =>
-      oauthClients.find((c) => c.client_type === type)?.client_id ?? '';
-    return {
-      web: idFor(OAUTH_CLIENT_TYPE.WEB),
-      ios: idFor(OAUTH_CLIENT_TYPE.IOS),
-      android: idFor(OAUTH_CLIENT_TYPE.ANDROID),
-    };
-  } catch {
-    return empty;
-  }
-}
-
-function expoGoogleServicesPath(canonicalJson) {
-  return canonicalJson ? './google-services.json' : undefined;
-}
-
-function expoIosPlistPathIfFileExists() {
-  return fs.existsSync(FILES.iosPlist) ? './GoogleService-Info.plist' : undefined;
-}
-
-function buildExpoConfig({ googleServicesFile, iosGoogleServicesFile, oauthIds }) {
   return {
     expo: {
       name: 'beauty-book-customers',
@@ -135,7 +36,7 @@ function buildExpoConfig({ googleServicesFile, iosGoogleServicesFile, oauthIds }
         infoPlist: {
           ITSAppUsesNonExemptEncryption: false,
         },
-        ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : {}),
+        ...(iosGoogleServices ? { googleServicesFile: iosGoogleServices } : {}),
       },
       android: {
         adaptiveIcon: {
@@ -147,7 +48,7 @@ function buildExpoConfig({ googleServicesFile, iosGoogleServicesFile, oauthIds }
         edgeToEdgeEnabled: true,
         predictiveBackGestureEnabled: false,
         package: 'com.jeanlucafp.beautybookcustomers',
-        ...(googleServicesFile ? { googleServicesFile } : {}),
+        ...(androidGoogleServices ? { googleServicesFile: androidGoogleServices } : {}),
       },
       web: {
         output: 'static',
@@ -165,32 +66,26 @@ function buildExpoConfig({ googleServicesFile, iosGoogleServicesFile, oauthIds }
             dark: { backgroundColor: '#000000' },
           },
         ],
+        '@react-native-firebase/app',
+        '@react-native-firebase/auth',
+        '@react-native-google-signin/google-signin',
+        [
+          'expo-build-properties',
+          {
+            ios: { useFrameworks: 'static' },
+          },
+        ],
       ],
       experiments: {
         typedRoutes: true,
         reactCompiler: true,
       },
       extra: {
-        googleWebClientId: oauthIds.web,
-        googleIosClientId: oauthIds.ios,
-        googleAndroidClientId: oauthIds.android,
+        googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
         router: {},
         eas: { projectId: '937cf1d1-0ecb-4092-975c-1d9ab5e6f5a5' },
       },
       owner: 'jeanlucafp',
     },
   };
-}
-
-export default () => {
-  writeIosPlistFromEnvIfPresent(process.env.GOOGLE_SERVICES_PLIST);
-
-  const canonicalGoogleServices = loadCanonicalGoogleServicesJson();
-  const oauthIds = extractOAuthClientIds(canonicalGoogleServices);
-
-  return buildExpoConfig({
-    googleServicesFile: expoGoogleServicesPath(canonicalGoogleServices),
-    iosGoogleServicesFile: expoIosPlistPathIfFileExists(),
-    oauthIds,
-  });
 };

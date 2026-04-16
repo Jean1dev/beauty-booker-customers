@@ -1,12 +1,12 @@
-import { User } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
+import type { AuthUser } from '@/platform/auth';
 import { db } from '@/services/firebase';
 import { CustomerProfile } from '@/types/customer';
 
 const COLLECTION = 'customers';
 
-export async function ensureCustomerDoc(user: User): Promise<CustomerProfile> {
+export async function ensureCustomerDoc(user: AuthUser): Promise<CustomerProfile> {
   const ref = doc(db, COLLECTION, user.uid);
   const snap = await getDoc(ref);
 

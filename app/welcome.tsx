@@ -12,9 +12,6 @@ import {
 import { Palette } from '@/constants/theme';
 import { useGoogleSignIn } from '@/platform/google-auth';
 
-// Necessário para fechar o popup de auth no mobile após o redirect
-WebBrowser.maybeCompleteAuthSession();
-
 export default function WelcomeScreen() {
   const { signIn, loading } = useGoogleSignIn();
   const scheme = useColorScheme();

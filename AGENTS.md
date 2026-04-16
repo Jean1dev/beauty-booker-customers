@@ -176,19 +176,44 @@ import { Image } from 'expo-image';
 
 ## Firebase
 
-### SDK utilizado
+### SDKs utilizados (híbrido por plataforma)
 
-Este projeto usa o **Firebase JS SDK** (`firebase`) — não o `@react-native-firebase`.
+Este projeto usa **dois SDKs**, escolhidos por plataforma, sempre escondidos atrás da pasta `platform/`:
 
-Isso significa um único código para as três plataformas. Nunca instale ou sugira `@react-native-firebase`.
+| Recurso | Web | iOS / Android |
+|---|---|---|
+| **Auth** (login, sessão, usuário atual) | Firebase JS SDK (`firebase/auth`) | `@react-native-firebase/auth` |
+| **Login com Google** | `signInWithPopup` (JS SDK) | `@react-native-google-signin/google-signin` + `auth().signInWithCredential(...)` |
+| **Firestore / Storage** | Firebase JS SDK (`firebase/firestore`, `firebase/storage`) | Firebase JS SDK (mesmos imports) |
+
+Motivos:
+- O fluxo OAuth do Google em app nativo **não** funciona de forma confiável via `expo-auth-session` + `firebase/auth` (cai em `Erro 400: invalid_request` por causa de `redirect_uri` e SHA-1). `@react-native-google-signin/google-signin` usa o fluxo nativo do Google (Credential Manager / AppAuth) e entrega um `idToken` pronto para `auth().signInWithCredential(...)` do RNFB.
+- O Firestore/Storage via JS SDK continua funcionando nas três plataformas e evita duplicar código.
+
+### Regra: nunca importar os SDKs direto em telas/componentes
+
+Sempre use a abstração de plataforma:
+
+```ts
+// ✅ Correto
+import { useGoogleSignIn } from '@/platform/google-auth';
+import { subscribeAuth, signOut, AuthUser } from '@/platform/auth';
+
+// ❌ Errado — nunca em telas/components/hooks de domínio
+import auth from '@react-native-firebase/auth';
+import { signInWithPopup } from 'firebase/auth';
+```
+
+### Pacotes
 
 ```bash
-# ✅ Correto
-npm install firebase
-
-# ❌ Nunca usar neste projeto
-npm install @react-native-firebase
+# ✅ Sempre use para pacotes nativos
+npx expo install firebase
+npx expo install @react-native-firebase/app @react-native-firebase/auth
+npx expo install @react-native-google-signin/google-signin
 ```
+
+> Nunca use `npm install` para pacotes nativos — pode instalar versão incompatível com o SDK 54.
 
 ### Estrutura do projeto no console Firebase
 
@@ -196,15 +221,15 @@ O projeto tem **um único projeto Firebase** com três apps registrados:
 
 | App registrado | Arquivo gerado | Onde vai no projeto |
 |---|---|---|
-| Web (`</>`) | objeto `firebaseConfig` | copiado para `.env` |
-| Android | `google-services.json` | raiz do projeto |
-| iOS | `GoogleService-Info.plist` | raiz do projeto |
+| Web (`</>`) | objeto `firebaseConfig` | copiado para `.env` (prefixo `EXPO_PUBLIC_`) |
+| Android | `google-services.json` | raiz do projeto (obrigatório para o build nativo) |
+| iOS | `GoogleService-Info.plist` | raiz do projeto (obrigatório para o build nativo) |
 
-> Os arquivos `google-services.json` e `GoogleService-Info.plist` são necessários apenas para builds nativos (EAS Build) e notificações push. Para Auth, Firestore e Storage via JS SDK, apenas o `firebaseConfig` da web é utilizado.
+> Para o login com Google no Android, o app Android **precisa** ter pelo menos um **SHA-1** registrado no Firebase (debug keystore ou EAS) **antes** de baixar o `google-services.json`. Sem isso o arquivo não traz o client OAuth Android e o login falha.
 
-### Inicialização — `services/firebase.ts`
+### Inicialização
 
-Este é o único arquivo de configuração Firebase do projeto. Nunca inicialize o Firebase em outro lugar.
+#### `services/firebase.ts` (JS SDK — Firestore, Storage e Auth no web)
 
 ```ts
 import { initializeApp } from 'firebase/app';
@@ -229,36 +254,48 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Única diferença por plataforma: onde a sessão do usuário é persistida
+// Auth JS SDK usado apenas no web (no mobile, ver platform/auth.native.ts)
 export const auth = initializeAuth(app, {
   persistence: Platform.OS === 'web'
-    ? browserLocalPersistence       // web → localStorage
-    : getReactNativePersistence(AsyncStorage), // mobile → AsyncStorage
+    ? browserLocalPersistence
+    : getReactNativePersistence(AsyncStorage),
 });
 
 export const db      = getFirestore(app);
 export const storage = getStorage(app);
 ```
 
-### Variáveis de ambiente
+#### `@react-native-firebase/app` (mobile)
 
-O Expo exige o prefixo `EXPO_PUBLIC_` para expor variáveis ao cliente.
+No mobile, o RNFB inicializa automaticamente a partir de `google-services.json` e `GoogleService-Info.plist`. Não há chamada de `initializeApp` manual. Só é preciso:
+
+1. Ter os arquivos Google no projeto (`google-services.json` / `GoogleService-Info.plist`) — carregados pelo `app.config.js`.
+2. Registrar o plugin `@react-native-firebase/app` em `plugins` no `app.config.js`.
+3. Em `app.config.js`, `expo-build-properties` com `ios.useFrameworks = 'static'`.
+
+### Variáveis de ambiente
 
 ```bash
 # .env  (nunca subir para o repositório — adicionar no .gitignore)
+
+# Firebase JS SDK (web + Firestore/Storage mobile)
 EXPO_PUBLIC_FIREBASE_API_KEY=AIza...
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=seuapp.firebaseapp.com
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=seuapp
 EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=seuapp.appspot.com
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
 EXPO_PUBLIC_FIREBASE_APP_ID=1:123...
+
+# Google Sign-In no mobile (client OAuth tipo Web — client_type 3 do google-services.json)
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...-abc.apps.googleusercontent.com
 ```
 
 ### Regras de uso
 
-- Sempre importe `auth`, `db` e `storage` de `@/services/firebase` — nunca chame `initializeApp` em outro arquivo
-- Nunca use `getAuth()` sem argumento — use sempre o `auth` exportado de `services/firebase.ts`
-- Um usuário autenticado na web e no mobile compartilha a mesma conta (mesmo projeto Firebase)
+- `auth`, `db` e `storage` do JS SDK: importar **sempre** de `@/services/firebase`.
+- Auth no mobile: importar **sempre** de `@/platform/auth` — nunca `import auth from '@react-native-firebase/auth'` em tela/hook de domínio.
+- Login Google: usar `useGoogleSignIn` de `@/platform/google-auth`.
+- Um usuário autenticado na web e no mobile compartilha a mesma conta (mesmo projeto Firebase).
 
 ---
 
@@ -303,7 +340,9 @@ if (Platform.OS === 'web') {
 - [ ] Usou `npm install` para pacote nativo? → trocar por `npx expo install`
 - [ ] Usou CSS string como estilo? → trocar por `StyleSheet`
 - [ ] Criou navegador manualmente? → usar Expo Router
-- [ ] Usou `@react-native-firebase`? → usar Firebase JS SDK (`firebase`)
-- [ ] Inicializou Firebase fora de `services/firebase.ts`? → centralizar
-- [ ] Usou `getAuth()` sem argumento? → importar `auth` de `services/firebase`
+- [ ] Importou `@react-native-firebase/auth` direto em tela/hook? → usar `@/platform/auth`
+- [ ] Importou `firebase/auth` direto em tela/hook fora do web? → usar `@/platform/auth`
+- [ ] Inicializou Firebase JS SDK fora de `services/firebase.ts`? → centralizar
+- [ ] Usou `getAuth()` sem argumento? → importar `auth` de `@/services/firebase`
 - [ ] Adicionou chave Firebase no código? → mover para `.env` com prefixo `EXPO_PUBLIC_`
+- [ ] Usou `expo-auth-session` para login Google? → usar `@react-native-google-signin/google-signin` no mobile e `signInWithPopup` no web (ambos via `@/platform/google-auth`)

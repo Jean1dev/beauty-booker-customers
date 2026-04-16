@@ -1,8 +1,7 @@
-import { signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
 import { useEffect } from 'react';
 
+import { signOut as platformSignOut, subscribeAuth } from '@/platform/auth';
 import { ensureCustomerDoc } from '@/services/customers';
-import { auth } from '@/services/firebase';
 import { useAuthStore } from '@/store/authStore';
 
 export function useAuth() {
@@ -14,14 +13,14 @@ export function useAuth() {
   const loading    = useAuthStore((s) => s.loading);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const customerProfile = await ensureCustomerDoc(firebaseUser);
+    const unsubscribe = subscribeAuth(async (authUser) => {
+      if (authUser) {
+        const customerProfile = await ensureCustomerDoc(authUser);
         setProfile(customerProfile);
       } else {
         setProfile(null);
       }
-      setUser(firebaseUser);
+      setUser(authUser);
       setLoading(false);
     });
 
@@ -29,7 +28,7 @@ export function useAuth() {
   }, [setUser, setProfile, setLoading]);
 
   async function signOut() {
-    await firebaseSignOut(auth);
+    await platformSignOut();
   }
 
   return { user, profile, loading, signOut };
