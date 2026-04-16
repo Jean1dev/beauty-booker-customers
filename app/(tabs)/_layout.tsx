@@ -51,29 +51,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explorar',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={24} name="magnifyingglass" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="agenda"
         options={{
           title: 'Agenda',
           tabBarIcon: ({ color }) => (
             <IconSymbol size={24} name="calendar" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="favoritos"
-        options={{
-          title: 'Favoritos',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={24} name="heart" color={color} />
           ),
         }}
       />
