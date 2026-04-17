@@ -1,4 +1,8 @@
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { signOut as jsSignOut } from 'firebase/auth';
+
+import { auth as jsAuth } from '@/services/firebase';
 
 import type { AuthListener, AuthUser } from './auth';
 
@@ -14,10 +18,22 @@ function toAuthUser(user: FirebaseAuthTypes.User | null): AuthUser | null {
 
 export function subscribeAuth(listener: AuthListener): () => void {
   return auth().onAuthStateChanged((user) => {
-    Promise.resolve(listener(toAuthUser(user))).catch(() => {});
+    Promise.resolve(listener(toAuthUser(user))).catch((error) => {
+      console.warn('[auth] subscribeAuth listener threw', error);
+    });
   });
 }
 
 export async function signOut(): Promise<void> {
-  await auth().signOut();
+  const results = await Promise.allSettled([
+    auth().signOut(),
+    jsSignOut(jsAuth),
+    GoogleSignin.signOut(),
+  ]);
+
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.warn('[auth] signOut step failed', result.reason);
+    }
+  }
 }

@@ -5,9 +5,14 @@ import {
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
+import {
+  GoogleAuthProvider as JSGoogleAuthProvider,
+  signInWithCredential as jsSignInWithCredential,
+} from 'firebase/auth';
 import { useCallback, useState } from 'react';
 
 import { showAlert } from '@/platform/alert';
+import { auth as jsAuth } from '@/services/firebase';
 
 const webClientId =
   (Constants.expoConfig?.extra as { googleWebClientId?: string } | undefined)
@@ -70,6 +75,22 @@ export function useGoogleSignIn() {
 
       const credential = GoogleAuthProvider.credential(idToken);
       await auth().signInWithCredential(credential);
+
+      try {
+        const jsCredential = JSGoogleAuthProvider.credential(idToken);
+        await jsSignInWithCredential(jsAuth, jsCredential);
+      } catch (jsAuthError) {
+        console.warn('[google-auth] JS SDK sign-in failed, rolling back RNFB session', jsAuthError);
+        try {
+          await auth().signOut();
+        } catch (rollbackError) {
+          console.warn('[google-auth] RNFB rollback failed', rollbackError);
+        }
+        try {
+          await GoogleSignin.signOut();
+        } catch {}
+        throw jsAuthError;
+      }
     } catch (error) {
       if (isErrorWithCode(error)) {
         if (error.code === statusCodes.SIGN_IN_CANCELLED) return;

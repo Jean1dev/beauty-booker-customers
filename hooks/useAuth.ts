@@ -14,14 +14,23 @@ export function useAuth() {
 
   useEffect(() => {
     const unsubscribe = subscribeAuth(async (authUser) => {
-      if (authUser) {
+      setUser(authUser);
+
+      if (!authUser) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      try {
         const customerProfile = await ensureCustomerDoc(authUser);
         setProfile(customerProfile);
-      } else {
+      } catch (error) {
+        console.warn('[useAuth] ensureCustomerDoc failed', error);
         setProfile(null);
+      } finally {
+        setLoading(false);
       }
-      setUser(authUser);
-      setLoading(false);
     });
 
     return unsubscribe;
