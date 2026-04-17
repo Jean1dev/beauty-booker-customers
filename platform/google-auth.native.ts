@@ -13,6 +13,26 @@ const webClientId =
   (Constants.expoConfig?.extra as { googleWebClientId?: string } | undefined)
     ?.googleWebClientId ?? '';
 
+function describeCaughtError(error: unknown): string {
+  if (error == null) return String(error);
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) {
+    const code =
+      'code' in error && (error as { code?: unknown }).code != null
+        ? `code: ${String((error as { code: unknown }).code)}\n`
+        : '';
+    return `${code}${error.name}: ${error.message}${error.stack ? `\n\n${error.stack}` : ''}`;
+  }
+  if (typeof error === 'object') {
+    try {
+      return JSON.stringify(error, Object.getOwnPropertyNames(error), 2);
+    } catch {
+      return String(error);
+    }
+  }
+  return String(error);
+}
+
 let configured = false;
 function ensureConfigured() {
   if (configured) return;
@@ -59,7 +79,10 @@ export function useGoogleSignIn() {
           return;
         }
       }
-      showAlert('Erro', 'Não foi possível entrar com Google. Tente novamente.');
+      showAlert(
+        'Erro',
+        `Não foi possível entrar com Google. Detalhes:\n\n${describeCaughtError(error)}`,
+      );
     } finally {
       setLoading(false);
     }

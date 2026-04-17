@@ -10,7 +10,7 @@ import {
 } from '@expo-google-fonts/dm-sans';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Redirect, Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -28,6 +28,8 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { user, profile, loading: authLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
   const [fontsLoaded] = useFonts({
     CormorantGaramond_300Light,
@@ -44,16 +46,29 @@ export default function RootLayout() {
     if (ready) SplashScreen.hideAsync();
   }, [ready]);
 
-  if (!ready) return null;
+  const currentSegment = segments[0];
 
-  let redirect: string;
-  if (!user) {
-    redirect = '/welcome';
-  } else if (!profile?.phone) {
-    redirect = '/setup-phone';
-  } else {
-    redirect = '/(tabs)';
-  }
+  useEffect(() => {
+    if (!ready) return;
+
+    const inWelcome = currentSegment === 'welcome';
+    const inSetupPhone = currentSegment === 'setup-phone';
+    const inAuthFlow = inWelcome || inSetupPhone;
+
+    if (!user) {
+      if (!inWelcome) router.replace('/welcome');
+      return;
+    }
+
+    if (!profile?.phone) {
+      if (!inSetupPhone) router.replace('/setup-phone');
+      return;
+    }
+
+    if (inAuthFlow) router.replace('/(tabs)');
+  }, [ready, user, profile?.phone, currentSegment, router]);
+
+  if (!ready) return null;
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -63,8 +78,6 @@ export default function RootLayout() {
         <Stack.Screen name="setup-phone" options={{ headerShown: false }} />
         <Stack.Screen name="modal"       options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-
-      <Redirect href={redirect as any} />
 
       <StatusBar style="auto" />
     </ThemeProvider>

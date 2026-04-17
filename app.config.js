@@ -1,24 +1,40 @@
 import fs from 'fs';
 
-const ANDROID_GOOGLE_SERVICES = './google-services.json';
-const IOS_GOOGLE_SERVICES = './GoogleService-Info.plist';
+const ANDROID_GOOGLE_SERVICES_LOCAL = './google-services.json';
+const IOS_GOOGLE_SERVICES_LOCAL = './GoogleService-Info.plist';
+
+const resolveSecretFile = (envValue, localPath) => {
+  if (envValue && fs.existsSync(envValue)) {
+    return envValue;
+  }
+
+  if (envValue && envValue.trim().startsWith('{')) {
+    fs.writeFileSync(localPath, envValue);
+    return localPath;
+  }
+
+  if (envValue && envValue.trim().startsWith('<?xml')) {
+    fs.writeFileSync(localPath, envValue);
+    return localPath;
+  }
+
+  if (fs.existsSync(localPath)) {
+    return localPath;
+  }
+
+  return undefined;
+};
 
 export default () => {
-  if (process.env.GOOGLE_SERVICES_JSON) {
-    fs.writeFileSync(ANDROID_GOOGLE_SERVICES, process.env.GOOGLE_SERVICES_JSON);
-  }
+  const androidGoogleServices = resolveSecretFile(
+    process.env.GOOGLE_SERVICES_JSON,
+    ANDROID_GOOGLE_SERVICES_LOCAL,
+  );
 
-  if (process.env.GOOGLE_SERVICES_PLIST) {
-    fs.writeFileSync(IOS_GOOGLE_SERVICES, process.env.GOOGLE_SERVICES_PLIST);
-  }
-
-  const androidGoogleServices = fs.existsSync(ANDROID_GOOGLE_SERVICES)
-    ? ANDROID_GOOGLE_SERVICES
-    : undefined;
-
-  const iosGoogleServices = fs.existsSync(IOS_GOOGLE_SERVICES)
-    ? IOS_GOOGLE_SERVICES
-    : undefined;
+  const iosGoogleServices = resolveSecretFile(
+    process.env.GOOGLE_SERVICES_PLIST,
+    IOS_GOOGLE_SERVICES_LOCAL,
+  );
 
   return {
     expo: {
@@ -72,7 +88,10 @@ export default () => {
         [
           'expo-build-properties',
           {
-            ios: { useFrameworks: 'static' },
+            ios: {
+              useFrameworks: 'static',
+              forceStaticLinking: ['RNFBApp', 'RNFBAuth'],
+            },
           },
         ],
       ],

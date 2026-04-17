@@ -7,6 +7,8 @@ eas build --platform android --profile preview
 eas build --platform ios --profile production
 eas build --platform ios --profile preview
 
+npx expo prebuild --platform android --clean
+
 eas submit
 
 eas secret:create \
