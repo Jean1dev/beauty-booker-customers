@@ -362,9 +362,27 @@ function ProCard({
         <Text style={[styles.proCardName, { color: c.textPrimary }]}>
           {proDisplayName(pro)}
         </Text>
-        <Text style={[styles.proCardLink, { color: accentColor }]} numberOfLines={1}>
-          @{pro.userLink}
-        </Text>
+        {!pro.displayName && !pro.name && (
+          <Text style={[styles.proCardLink, { color: accentColor }]} numberOfLines={1}>
+            @{pro.userLink}
+          </Text>
+        )}
+        {pro.serviceCategory && (
+          <View style={styles.categoryTags}>
+            {pro.serviceCategory
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .slice(0, 3)
+              .map((tag) => (
+                <View
+                  key={tag}
+                  style={[styles.categoryTag, { backgroundColor: cardBg, borderColor: `${accentColor}40` }]}>
+                  <Text style={[styles.categoryTagText, { color: accentColor }]}>{tag}</Text>
+                </View>
+              ))}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -569,6 +587,23 @@ const styles = StyleSheet.create({
   proCardLink: {
     fontFamily: 'DMSans_400Regular',
     fontSize: 11,
+    letterSpacing: 0.1,
+  },
+  categoryTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 6,
+  },
+  categoryTag: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  categoryTagText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 9,
     letterSpacing: 0.1,
   },
 
