@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 import type { AuthUser } from '@/platform/auth';
 import { db } from '@/services/firebase';
@@ -38,4 +38,9 @@ export async function updateCustomerPhone(
     throw new Error('Customer document missing after phone update');
   }
   return snap.data() as CustomerProfile;
+}
+
+export async function deleteCustomerData(uid: string): Promise<void> {
+  const ref = doc(db, COLLECTION, uid);
+  await deleteDoc(ref);
 }

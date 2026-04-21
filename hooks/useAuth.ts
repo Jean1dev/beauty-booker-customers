@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
-import { signOut as platformSignOut, subscribeAuth } from '@/platform/auth';
-import { ensureCustomerDoc } from '@/services/customers';
+import { deleteAccount as platformDeleteAccount, signOut as platformSignOut, subscribeAuth } from '@/platform/auth';
+import { deleteCustomerData, ensureCustomerDoc } from '@/services/customers';
 import { useAuthStore } from '@/store/authStore';
 
 export function useAuth() {
@@ -31,5 +31,11 @@ export function useAuth() {
     await platformSignOut();
   }
 
-  return { user, profile, loading, signOut };
+  async function deleteAccount() {
+    if (!user) return;
+    await deleteCustomerData(user.uid);
+    await platformDeleteAccount();
+  }
+
+  return { user, profile, loading, signOut, deleteAccount };
 }

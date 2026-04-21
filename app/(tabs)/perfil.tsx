@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 
-import { showConfirm } from '@/platform/alert';
+import { showAlert, showConfirm } from '@/platform/alert';
 import { Palette } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -24,9 +25,10 @@ function initials(name: string): string {
 }
 
 export default function PerfilScreen() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, deleteAccount } = useAuth();
   const scheme = useColorScheme();
   const dark   = scheme === 'dark';
+  const [deleting, setDeleting] = useState(false);
 
   const c = {
     bg:            dark ? Palette.neutral[900]  : Palette.neutral[50],
@@ -49,6 +51,30 @@ export default function PerfilScreen() {
       'Sair da conta',
       'Deseja encerrar sua sessão?',
       () => signOut(),
+    );
+  }
+
+  function handleDeleteAccount() {
+    showConfirm(
+      'Excluir conta e dados',
+      'Todos os seus dados serão apagados permanentemente. Essa ação não pode ser desfeita.\n\nVocê precisará confirmar sua identidade com o Google para prosseguir.',
+      () => {
+        showConfirm(
+          'Tem certeza absoluta?',
+          'Sua conta e todos os dados pessoais serão excluídos agora.',
+          async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+            } catch (err) {
+              setDeleting(false);
+              const msg =
+                err instanceof Error ? err.message : 'Erro desconhecido.';
+              showAlert('Não foi possível excluir', msg);
+            }
+          },
+        );
+      },
     );
   }
 
@@ -117,6 +143,25 @@ export default function PerfilScreen() {
         activeOpacity={0.75}>
         <Text style={[styles.signOutText, { color: c.danger }]}>Sair da conta</Text>
       </TouchableOpacity>
+
+      {/* ── Zona de perigo ── */}
+      <View style={[styles.dangerCard, { backgroundColor: c.surface, borderColor: c.danger }]}>
+        <Text style={[styles.dangerCardLabel, { color: c.danger }]}>ZONA DE PERIGO</Text>
+        <Text style={[styles.dangerCardDesc, { color: c.textSecondary }]}>
+          A exclusão da conta remove permanentemente todos os seus dados pessoais. Essa ação é irreversível.
+        </Text>
+        <TouchableOpacity
+          style={[styles.deleteBtn, { backgroundColor: c.danger }, deleting && styles.deleteBtnDisabled]}
+          onPress={handleDeleteAccount}
+          activeOpacity={0.8}
+          disabled={deleting}>
+          {deleting ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.deleteBtnText}>Excluir minha conta e dados</Text>
+          )}
+        </TouchableOpacity>
+      </View>
 
     </ScrollView>
   );
@@ -266,6 +311,42 @@ const styles = StyleSheet.create({
   signOutText: {
     fontFamily: 'DMSans_500Medium',
     fontSize: 14,
+    letterSpacing: 0.2,
+  },
+
+  // Danger zone
+  dangerCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 12,
+    marginTop: 8,
+  },
+  dangerCardLabel: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
+  dangerCardDesc: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  deleteBtn: {
+    borderRadius: 999,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  deleteBtnDisabled: {
+    opacity: 0.6,
+  },
+  deleteBtnText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 14,
+    color: '#FFFFFF',
     letterSpacing: 0.2,
   },
 });
