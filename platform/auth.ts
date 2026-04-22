@@ -7,4 +7,4 @@ export type AuthUser = {
 
 export type AuthListener = (user: AuthUser | null) => void | Promise<void>;
 
-export { subscribeAuth, signOut } from './auth.native';
+export { subscribeAuth, signOut, deleteAccount } from './auth.native';
