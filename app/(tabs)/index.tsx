@@ -108,7 +108,10 @@ export default function HomeScreen() {
   const cardWidth = Math.min((width - 20 * 2 - 12) / 2, 220);
 
   const openBooking = async (userLink: string) => {
-    await WebBrowser.openBrowserAsync(`https://bookpro.me/book/${userLink}`);
+    const url = profile?.phone
+      ? `https://bookpro.me/book/${userLink}?phoneNumber=${encodeURIComponent(profile.phone)}`
+      : `https://bookpro.me/book/${userLink}`;
+    await WebBrowser.openBrowserAsync(url);
   };
 
   return (

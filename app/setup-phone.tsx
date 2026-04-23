@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { Palette } from '@/constants/theme';
+import { signOut } from '@/platform/auth';
 import { updateCustomerPhone } from '@/services/customers';
 import { useAuthStore } from '@/store/authStore';
 import { isValidBRPhone, maskPhone, rawDigits } from '@/utils/phoneMask';
@@ -42,7 +43,7 @@ export default function SetupPhoneScreen() {
   const dark      = scheme === 'dark';
   const { width } = useWindowDimensions();
 
-  const { user, setProfile } = useAuthStore();
+  const { user, setProfile, setUser } = useAuthStore();
 
   const [masked,  setMasked]  = useState('');
   const [saving,  setSaving]  = useState(false);
@@ -87,7 +88,14 @@ export default function SetupPhoneScreen() {
       setProfile(updated);
     } catch (err) {
       console.warn('[setup-phone] updateCustomerPhone failed', err);
-      setError(describeFirestoreError(err));
+      const code = (err as { code?: string }).code ?? '';
+      if (code === 'permission-denied' || code === 'unauthenticated') {
+        setUser(null);
+        setProfile(null);
+        signOut().catch((e) => console.warn('[setup-phone] signOut failed', e));
+      } else {
+        setError(describeFirestoreError(err));
+      }
     } finally {
       setSaving(false);
     }

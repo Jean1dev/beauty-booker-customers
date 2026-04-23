@@ -27,7 +27,14 @@ export function useAuth() {
         setProfile(customerProfile);
       } catch (error) {
         console.warn('[useAuth] ensureCustomerDoc failed', error);
-        setProfile(null);
+        const code = (error as { code?: string }).code ?? '';
+        if (code === 'permission-denied' || code === 'unauthenticated') {
+          setUser(null);
+          setProfile(null);
+          platformSignOut().catch((e) => console.warn('[useAuth] signOut after auth error', e));
+        } else {
+          setProfile(null);
+        }
       } finally {
         setLoading(false);
       }

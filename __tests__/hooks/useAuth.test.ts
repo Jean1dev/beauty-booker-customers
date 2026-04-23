@@ -150,6 +150,62 @@ describe('useAuth — erro no ensureCustomerDoc', () => {
     expect(result.current.profile).toBeNull();
     expect(result.current.user).toEqual(mockUser);
   });
+
+  it('limpa user e chama signOut quando ensureDoc retorna permission-denied', async () => {
+    mockSubscribeAuth.mockImplementation((cb: Function) => {
+      cb(mockUser);
+      return jest.fn();
+    });
+    const permissionError = Object.assign(new Error('Missing or insufficient permissions'), {
+      code: 'permission-denied',
+    });
+    mockEnsureDoc.mockRejectedValue(permissionError);
+    mockSignOut.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useAuth());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.profile).toBeNull();
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('limpa user e chama signOut quando ensureDoc retorna unauthenticated', async () => {
+    mockSubscribeAuth.mockImplementation((cb: Function) => {
+      cb(mockUser);
+      return jest.fn();
+    });
+    const authError = Object.assign(new Error('Request is not authenticated'), {
+      code: 'unauthenticated',
+    });
+    mockEnsureDoc.mockRejectedValue(authError);
+    mockSignOut.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useAuth());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.user).toBeNull();
+    expect(result.current.profile).toBeNull();
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantém user e NÃO chama signOut em erro genérico de rede', async () => {
+    mockSubscribeAuth.mockImplementation((cb: Function) => {
+      cb(mockUser);
+      return jest.fn();
+    });
+    mockEnsureDoc.mockRejectedValue(new Error('Network request failed'));
+
+    const { result } = renderHook(() => useAuth());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.user).toEqual(mockUser);
+    expect(result.current.profile).toBeNull();
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
 });
 
 describe('useAuth — signOut', () => {
