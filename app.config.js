@@ -72,6 +72,7 @@ export default () => {
       },
       plugins: [
         'expo-router',
+        './plugins/withAdiRegistration', 
         [
           'expo-splash-screen',
           {

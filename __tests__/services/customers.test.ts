@@ -8,14 +8,13 @@ jest.mock('@/services/firebase', () => ({ db: {} }));
 
 const mockGetDoc    = jest.fn();
 const mockSetDoc    = jest.fn();
-const mockUpdateDoc = jest.fn();
 const mockDocRef    = { path: 'customers/user-123' };
 
 jest.mock('firebase/firestore', () => ({
   doc:     jest.fn(() => mockDocRef),
   getDoc:  () => mockGetDoc(),
   setDoc:  (...args: unknown[]) => mockSetDoc(...args),
-  updateDoc: (...args: unknown[]) => mockUpdateDoc(...args),
+  deleteDoc: jest.fn(),
 }));
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -97,8 +96,8 @@ describe('ensureCustomerDoc', () => {
 });
 
 describe('updateCustomerPhone', () => {
-  it('chama updateDoc com o phone correto', async () => {
-    mockUpdateDoc.mockResolvedValue(undefined);
+  it('chama setDoc com merge para gravar o telefone', async () => {
+    mockSetDoc.mockResolvedValue(undefined);
     mockGetDoc.mockResolvedValue({
       exists: () => true,
       data: () => ({ ...existingProfile, phone: '11888776655' }),
@@ -106,12 +105,16 @@ describe('updateCustomerPhone', () => {
 
     await updateCustomerPhone('user-123', '11888776655');
 
-    expect(mockUpdateDoc).toHaveBeenCalledWith(mockDocRef, { phone: '11888776655' });
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      mockDocRef,
+      { phone: '11888776655', uid: 'user-123' },
+      { merge: true },
+    );
   });
 
-  it('retorna perfil atualizado após updateDoc', async () => {
+  it('retorna perfil atualizado após setDoc', async () => {
     const updatedProfile = { ...existingProfile, phone: '11888776655' };
-    mockUpdateDoc.mockResolvedValue(undefined);
+    mockSetDoc.mockResolvedValue(undefined);
     mockGetDoc.mockResolvedValue({ exists: () => true, data: () => updatedProfile });
 
     const result = await updateCustomerPhone('user-123', '11888776655');
@@ -119,8 +122,8 @@ describe('updateCustomerPhone', () => {
     expect(result.phone).toBe('11888776655');
   });
 
-  it('lança erro quando documento não existe após update', async () => {
-    mockUpdateDoc.mockResolvedValue(undefined);
+  it('lança erro quando documento não existe após gravação', async () => {
+    mockSetDoc.mockResolvedValue(undefined);
     mockGetDoc.mockResolvedValue({ exists: () => false });
 
     await expect(updateCustomerPhone('user-123', '11999')).rejects.toThrow(

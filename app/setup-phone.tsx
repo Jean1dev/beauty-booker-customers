@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,7 +17,25 @@ import {
 import { Palette } from '@/constants/theme';
 import { updateCustomerPhone } from '@/services/customers';
 import { useAuthStore } from '@/store/authStore';
-import { maskPhone, rawDigits } from '@/utils/phoneMask';
+import { isValidBRPhone, maskPhone, rawDigits } from '@/utils/phoneMask';
+
+function describeFirestoreError(error: unknown): string {
+  if (!error || typeof error !== 'object') {
+    return 'Não foi possível salvar. Tente novamente.';
+  }
+  const code = (error as { code?: string }).code ?? '';
+  switch (code) {
+    case 'permission-denied':
+      return 'Sem permissão para salvar. Faça login novamente.';
+    case 'unavailable':
+    case 'deadline-exceeded':
+      return 'Sem conexão. Verifique sua internet e tente novamente.';
+    case 'unauthenticated':
+      return 'Sessão expirada. Faça login novamente.';
+    default:
+      return 'Não foi possível salvar. Tente novamente.';
+  }
+}
 
 export default function SetupPhoneScreen() {
   const scheme    = useColorScheme();
@@ -51,104 +70,114 @@ export default function SetupPhoneScreen() {
   async function handleConfirm() {
     const digits = rawDigits(masked);
 
-    if (digits.length < 10) {
-      setError('Informe um número de telefone válido.');
+    if (!isValidBRPhone(digits)) {
+      setError('Informe um número de telefone brasileiro válido com DDD.');
       return;
     }
 
-    if (!user) return;
+    if (!user) {
+      setError('Sessão expirada. Faça login novamente.');
+      return;
+    }
 
     setSaving(true);
     setError('');
     try {
       const updated = await updateCustomerPhone(user.uid, digits);
       setProfile(updated);
-    } catch {
-      setError('Não foi possível salvar. Tente novamente.');
+    } catch (err) {
+      console.warn('[setup-phone] updateCustomerPhone failed', err);
+      setError(describeFirestoreError(err));
     } finally {
       setSaving(false);
     }
   }
 
-  const isReady = rawDigits(masked).length >= 10;
+  const isReady = isValidBRPhone(rawDigits(masked));
 
   return (
     <>
-      {/* Impede voltar para esta tela após cadastro */}
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
 
       <KeyboardAvoidingView
         style={[styles.root, { backgroundColor: colors.bg }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
         <View style={[styles.topBar, { backgroundColor: colors.accent }]} />
 
-        <View style={[styles.inner, { maxWidth: Math.min(width, 440) }]}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
 
-          {/* ── Header ── */}
-          <View style={styles.headerArea}>
-            <Text style={[styles.logo, { color: colors.textPrimary }]}>
-              Beauty<Text style={[styles.logoItalic, { color: colors.accent }]}>Book</Text>
-            </Text>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>
-              Seu número de telefone
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              As profissionais usam seu número para confirmar agendamentos.
-              Não compartilhamos com terceiros.
-            </Text>
-          </View>
+          <View style={[styles.inner, { maxWidth: Math.min(width, 440) }]}>
 
-          {/* ── Input ── */}
-          <View style={styles.fieldArea}>
-            <Text style={[styles.label, { color: colors.textTertiary }]}>TELEFONE</Text>
-            <TextInput
+            <View style={styles.headerArea}>
+              <Text style={[styles.logo, { color: colors.textPrimary }]}>
+                Beauty<Text style={[styles.logoItalic, { color: colors.accent }]}>Book</Text>
+              </Text>
+              <Text style={[styles.title, { color: colors.textPrimary }]}>
+                Seu número de telefone
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                As profissionais usam seu número para confirmar agendamentos.
+                Não compartilhamos com terceiros.
+              </Text>
+            </View>
+
+            <View style={styles.fieldArea}>
+              <Text style={[styles.label, { color: colors.textTertiary }]}>TELEFONE</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: error ? colors.error : (masked ? colors.borderFocus : colors.border),
+                    color: colors.textPrimary,
+                  },
+                ]}
+                value={masked}
+                onChangeText={handleChange}
+                placeholder="(11) 99999-9999"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType={Platform.OS === 'ios' ? 'number-pad' : 'phone-pad'}
+                textContentType="telephoneNumber"
+                autoComplete="tel"
+                maxLength={16}
+                returnKeyType="done"
+                editable={!saving}
+                onSubmitEditing={handleConfirm}
+              />
+              {error ? (
+                <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+              ) : (
+                <Text style={[styles.hint, { color: colors.textTertiary }]}>
+                  DDD + número (10 ou 11 dígitos)
+                </Text>
+              )}
+            </View>
+
+            <TouchableOpacity
               style={[
-                styles.input,
+                styles.btnPrimary,
                 {
-                  backgroundColor: colors.surface,
-                  borderColor: error ? colors.error : (masked ? colors.borderFocus : colors.border),
-                  color: colors.textPrimary,
+                  backgroundColor: colors.accent,
+                  shadowColor: colors.accentShadow,
+                  opacity: isReady && !saving ? 1 : 0.5,
                 },
               ]}
-              value={masked}
-              onChangeText={handleChange}
-              placeholder="(11) 99999-9999"
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="phone-pad"
-              maxLength={16}
-              autoFocus
-            />
-            {error ? (
-              <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-            ) : (
-              <Text style={[styles.hint, { color: colors.textTertiary }]}>
-                DDD + número com 9 dígitos
-              </Text>
-            )}
+              onPress={handleConfirm}
+              disabled={!isReady || saving}
+              activeOpacity={0.85}>
+              {saving ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.btnPrimaryText}>Confirmar</Text>
+              )}
+            </TouchableOpacity>
+
           </View>
-
-          {/* ── Button ── */}
-          <TouchableOpacity
-            style={[
-              styles.btnPrimary,
-              {
-                backgroundColor: colors.accent,
-                shadowColor: colors.accentShadow,
-                opacity: isReady && !saving ? 1 : 0.5,
-              },
-            ]}
-            onPress={handleConfirm}
-            disabled={!isReady || saving}
-            activeOpacity={0.85}>
-            {saving ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.btnPrimaryText}>Confirmar</Text>
-            )}
-          </TouchableOpacity>
-
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </>
   );
@@ -162,8 +191,11 @@ const styles = StyleSheet.create({
     height: 3,
     width: '100%',
   },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   inner: {
-    flex: 1,
     paddingHorizontal: 32,
     paddingTop: 72,
     paddingBottom: 48,
@@ -171,7 +203,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
-  // Header
   headerArea: {
     marginBottom: 48,
   },
@@ -198,7 +229,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
 
-  // Field
   fieldArea: {
     marginBottom: 32,
   },
@@ -228,7 +258,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
 
-  // Button
   btnPrimary: {
     alignItems: 'center',
     justifyContent: 'center',
