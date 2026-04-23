@@ -52,6 +52,7 @@ export default () => {
         infoPlist: {
           ITSAppUsesNonExemptEncryption: false,
         },
+        usesAppleSignIn: true,
         ...(iosGoogleServices ? { googleServicesFile: iosGoogleServices } : {}),
       },
       android: {
@@ -72,6 +73,7 @@ export default () => {
       },
       plugins: [
         'expo-router',
+        'expo-apple-authentication',
         './plugins/withAdiRegistration', 
         [
           'expo-splash-screen',

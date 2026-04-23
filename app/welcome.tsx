@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { Palette } from '@/constants/theme';
+import { AppleSignInButton } from '@/platform/apple-sign-in-button';
 import { useGoogleSignIn } from '@/platform/google-auth';
 
 export default function WelcomeScreen() {
@@ -81,6 +82,8 @@ export default function WelcomeScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          <AppleSignInButton />
 
           <TouchableOpacity
             style={[styles.btnSecondary, { borderColor: colors.border }]}
