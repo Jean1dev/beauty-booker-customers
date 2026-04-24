@@ -331,7 +331,6 @@ function ProCard({
 }) {
   const cardBg      = pro.theme?.primary ? `${pro.theme.primary}18` : c.accentLight;
   const accentColor = pro.theme?.accent  ?? c.accent;
-  const textColor   = pro.theme?.accent  ?? c.avatarText;
   const borderColor = pro.theme?.accent  ? `${pro.theme.accent}40` : c.border;
 
   return (
