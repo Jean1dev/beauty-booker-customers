@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -9,6 +10,10 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
+  const tabBarPaddingBottom = Math.max(insets.bottom, TabBarMetrics.paddingBottom);
+  const tabBarHeight =
+    TabBarMetrics.height - TabBarMetrics.paddingBottom + tabBarPaddingBottom;
 
   return (
     <Tabs
@@ -21,8 +26,8 @@ export default function TabLayout() {
           backgroundColor: theme.tabBarBackground,
           borderTopColor: theme.border,
           borderTopWidth: 1,
-          height: TabBarMetrics.height,
-          paddingBottom: TabBarMetrics.paddingBottom,
+          height: tabBarHeight,
+          paddingBottom: tabBarPaddingBottom,
           paddingTop: TabBarMetrics.paddingTop,
           elevation: 0,
           shadowColor: '#000',

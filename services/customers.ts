@@ -1,4 +1,4 @@
-import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 
 import type { AuthUser } from '@/platform/auth';
 import { db } from '@/services/firebase';
@@ -32,7 +32,7 @@ export async function updateCustomerPhone(
   phone: string,
 ): Promise<CustomerProfile> {
   const ref = doc(db, COLLECTION, uid);
-  await updateDoc(ref, { phone });
+  await setDoc(ref, { phone, uid }, { merge: true });
   const snap = await getDoc(ref);
   if (!snap.exists()) {
     throw new Error('Customer document missing after phone update');

@@ -1,7 +1,9 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,61 +15,20 @@ import {
 
 import { Palette } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfessionals } from '@/hooks/useProfessionals';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import type { Professional } from '@/types/professional';
 
-// ─── Mock data (substituir pela API quando disponível) ───────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { id: 'all',         label: 'Todos' },
-  { id: 'hair',        label: 'Cabelo' },
-  { id: 'nails',       label: 'Unhas' },
-  { id: 'makeup',      label: 'Maquiagem' },
-  { id: 'brows',       label: 'Sobrancelha' },
-  { id: 'skincare',    label: 'Skincare' },
-  { id: 'massage',     label: 'Massagem' },
-];
-
-const PROS = [
-  {
-    id: '1',
-    initial: 'A',
-    name: 'Ana Carolina',
-    specialty: 'Cabelo · Coloração · Escova',
-    rating: '4,9',
-    reviews: 128,
-    available: true,
-    tags: ['Cabelo'],
-  },
-  {
-    id: '2',
-    initial: 'M',
-    name: 'Mariana Lima',
-    specialty: 'Unhas · Manicure · Pedicure',
-    rating: '4,8',
-    reviews: 94,
-    available: true,
-    tags: ['Unhas'],
-  },
-  {
-    id: '3',
-    initial: 'J',
-    name: 'Juliana Reis',
-    specialty: 'Maquiagem · Make social',
-    rating: '5,0',
-    reviews: 61,
-    available: false,
-    tags: ['Maquiagem'],
-  },
-  {
-    id: '4',
-    initial: 'P',
-    name: 'Patricia Souza',
-    specialty: 'Sobrancelha · Design · Henna',
-    rating: '4,7',
-    reviews: 203,
-    available: true,
-    tags: ['Sobrancelha'],
-  },
+  { id: 'all',      label: 'Todos' },
+  { id: 'hair',     label: 'Cabelo' },
+  { id: 'nails',    label: 'Unhas' },
+  { id: 'makeup',   label: 'Maquiagem' },
+  { id: 'brows',    label: 'Sobrancelha' },
+  { id: 'skincare', label: 'Skincare' },
+  { id: 'massage',  label: 'Massagem' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -95,41 +56,63 @@ function today(): string {
   }).format(new Date());
 }
 
+function proDisplayName(pro: Professional): string {
+  return pro.displayName ?? pro.name ?? pro.userLink;
+}
+
+function proInitial(pro: Professional): string {
+  return proDisplayName(pro).charAt(0).toUpperCase();
+}
+
+function proMatchesCategory(pro: Professional, categoryLabel: string): boolean {
+  if (!pro.serviceCategory) return false;
+  return pro.serviceCategory
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .includes(categoryLabel.toLowerCase());
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const { profile } = useAuth();
   const scheme = useColorScheme();
-  const dark   = scheme === 'dark';
+  const dark = scheme === 'dark';
   const { width } = useWindowDimensions();
-
   const [activeCategory, setActiveCategory] = useState('all');
+  const { professionals, favorites, loading, toggleFavorite } = useProfessionals();
 
   const c = {
-    bg:            dark ? Palette.neutral[900]  : Palette.neutral[50],
-    surface:       dark ? Palette.neutral[800]  : '#FFFFFF',
-    subtle:        dark ? Palette.neutral[700]  : Palette.neutral[100],
-    border:        dark ? Palette.neutral[700]  : Palette.neutral[200],
-    textPrimary:   dark ? '#F5F2EE'             : Palette.neutral[900],
-    textSecondary: dark ? Palette.neutral[400]  : Palette.neutral[500],
-    textTertiary:  dark ? Palette.neutral[500]  : Palette.neutral[400],
-    accent:        dark ? Palette.rose[400]     : Palette.rose[500],
-    accentLight:   dark ? 'rgba(196,92,88,0.15)': Palette.rose[100],
-    accentText:    dark ? Palette.rose[300]     : Palette.rose[700],
-    gold:          dark ? Palette.gold[300]     : Palette.gold[400],
-    success:       dark ? '#6EC97A'             : '#2D7A3A',
-    successBg:     dark ? 'rgba(45,122,58,0.2)' : '#EAF5EC',
-    avatarText:    dark ? Palette.rose[300]     : Palette.rose[700],
+    bg:            dark ? Palette.neutral[900]   : Palette.neutral[50],
+    surface:       dark ? Palette.neutral[800]   : '#FFFFFF',
+    subtle:        dark ? Palette.neutral[700]   : Palette.neutral[100],
+    border:        dark ? Palette.neutral[700]   : Palette.neutral[200],
+    textPrimary:   dark ? '#F5F2EE'              : Palette.neutral[900],
+    textSecondary: dark ? Palette.neutral[400]   : Palette.neutral[500],
+    textTertiary:  dark ? Palette.neutral[500]   : Palette.neutral[400],
+    accent:        dark ? Palette.rose[400]      : Palette.rose[500],
+    accentLight:   dark ? 'rgba(196,92,88,0.15)' : Palette.rose[100],
+    accentText:    dark ? Palette.rose[300]      : Palette.rose[700],
+    avatarText:    dark ? Palette.rose[300]      : Palette.rose[700],
+    favActive:     '#E53935',
   };
 
-  const filteredPros = activeCategory === 'all'
-    ? PROS
-    : PROS.filter(p => p.tags.includes(
-        CATEGORIES.find(cat => cat.id === activeCategory)?.label ?? ''
-      ));
+  const favPros = professionals.filter((p) => favorites.has(p.userLink));
 
-  // Dois cards por linha quando a tela for larga o suficiente
+  const filteredPros = activeCategory === 'all'
+    ? professionals
+    : professionals.filter((p) =>
+        proMatchesCategory(p, CATEGORIES.find((c) => c.id === activeCategory)?.label ?? ''),
+      );
+
   const cardWidth = Math.min((width - 20 * 2 - 12) / 2, 220);
+
+  const openBooking = async (userLink: string) => {
+    const url = profile?.phone
+      ? `https://bookpro.me/book/${userLink}?phoneNumber=${encodeURIComponent(profile.phone)}`
+      : `https://bookpro.me/book/${userLink}`;
+    await WebBrowser.openBrowserAsync(url);
+  };
 
   return (
     <ScrollView
@@ -151,7 +134,6 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Avatar pequeno */}
         <TouchableOpacity
           style={[styles.headerAvatar, { borderColor: c.accent }]}
           onPress={() => router.push('/(tabs)/perfil')}
@@ -183,13 +165,36 @@ export default function HomeScreen() {
         </Text>
       </TouchableOpacity>
 
+      {/* ── Favoritas ── */}
+      {favPros.length > 0 && (
+        <>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: c.textPrimary }]}>Favoritas</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.favRow}
+            style={styles.favScroll}>
+            {favPros.map((pro) => (
+              <FavoriteBubble
+                key={pro.id}
+                pro={pro}
+                colors={c}
+                onPress={() => openBooking(pro.userLink)}
+              />
+            ))}
+          </ScrollView>
+        </>
+      )}
+
       {/* ── Categorias ── */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.categoriesRow}
         style={styles.categoriesScroll}>
-        {CATEGORIES.map(cat => {
+        {CATEGORIES.map((cat) => {
           const active = activeCategory === cat.id;
           return (
             <TouchableOpacity
@@ -197,8 +202,8 @@ export default function HomeScreen() {
               style={[
                 styles.categoryPill,
                 {
-                  backgroundColor: active ? c.accent       : c.surface,
-                  borderColor:     active ? c.accent       : c.border,
+                  backgroundColor: active ? c.accent  : c.surface,
+                  borderColor:     active ? c.accent  : c.border,
                 },
               ]}
               onPress={() => setActiveCategory(cat.id)}
@@ -217,26 +222,30 @@ export default function HomeScreen() {
       {/* ── Em destaque ── */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: c.textPrimary }]}>Em destaque</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/agenda')} activeOpacity={0.7}>
-          <Text style={[styles.sectionLink, { color: c.accent }]}>Ver todas</Text>
-        </TouchableOpacity>
       </View>
 
-      {filteredPros.length === 0 ? (
+      {loading ? (
+        <ActivityIndicator color={c.accent} style={{ marginVertical: 32 }} />
+      ) : filteredPros.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: c.subtle, borderColor: c.border }]}>
           <Text style={[styles.emptyIcon, { color: c.textTertiary }]}>✦</Text>
           <Text style={[styles.emptyText, { color: c.textSecondary }]}>
-            Nenhuma profissional nessa categoria ainda.
+            {professionals.length === 0
+              ? 'Nenhuma profissional disponível ainda.'
+              : 'Nenhuma profissional nessa categoria.'}
           </Text>
         </View>
       ) : (
         <View style={styles.proGrid}>
-          {filteredPros.map(pro => (
+          {filteredPros.map((pro) => (
             <ProCard
               key={pro.id}
               pro={pro}
               width={cardWidth}
               colors={c}
+              isFav={favorites.has(pro.userLink)}
+              onFavPress={() => toggleFavorite(pro.userLink)}
+              onPress={() => openBooking(pro.userLink)}
             />
           ))}
         </View>
@@ -264,63 +273,119 @@ export default function HomeScreen() {
   );
 }
 
-// ─── Pro Card ─────────────────────────────────────────────────────────────────
+// ─── Favorite Bubble ─────────────────────────────────────────────────────────
 
 type ProColors = Record<string, string>;
+
+function FavoriteBubble({
+  pro,
+  colors: c,
+  onPress,
+}: {
+  pro: Professional;
+  colors: ProColors;
+  onPress: () => void;
+}) {
+  const bgColor = pro.theme?.primary ?? c.accentLight;
+  const textColor = pro.theme?.accent ?? c.avatarText;
+
+  return (
+    <TouchableOpacity style={styles.favBubble} onPress={onPress} activeOpacity={0.8}>
+      <View style={[styles.favBubbleAvatar, { borderColor: pro.theme?.accent ?? c.accent }]}>
+        {pro.logoUrl ? (
+          <Image source={{ uri: pro.logoUrl }} style={styles.favBubbleImg} contentFit="cover" />
+        ) : (
+          <View style={[styles.favBubbleFallback, { backgroundColor: bgColor }]}>
+            <Text style={[styles.favBubbleInitial, { color: textColor }]}>
+              {proInitial(pro)}
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text style={[styles.favBubbleName, { color: c.textSecondary }]} numberOfLines={1}>
+        {proDisplayName(pro)}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Pro Card ─────────────────────────────────────────────────────────────────
 
 function ProCard({
   pro,
   width,
   colors: c,
+  isFav,
+  onFavPress,
+  onPress,
 }: {
-  pro: typeof PROS[number];
+  pro: Professional;
   width: number;
   colors: ProColors;
+  isFav: boolean;
+  onFavPress: () => void;
+  onPress: () => void;
 }) {
+  const cardBg      = pro.theme?.primary ? `${pro.theme.primary}18` : c.accentLight;
+  const accentColor = pro.theme?.accent  ?? c.accent;
+  const textColor   = pro.theme?.accent  ?? c.avatarText;
+  const borderColor = pro.theme?.accent  ? `${pro.theme.accent}40` : c.border;
+
   return (
     <TouchableOpacity
-      style={[styles.proCard, { width, backgroundColor: c.surface, borderColor: c.border }]}
+      style={[styles.proCard, { width, backgroundColor: c.surface, borderColor }]}
+      onPress={onPress}
       activeOpacity={0.85}>
 
-      {/* Imagem / placeholder */}
-      <View style={[styles.proCardImg, { backgroundColor: c.accentLight }]}>
-        <Text style={[styles.proCardImgText, { color: c.accent }]}>{pro.initial}</Text>
-        <View style={[styles.favBtn, { backgroundColor: c.surface }]}>
-          <IconSymbol name="heart" size={14} color={c.textTertiary} />
-        </View>
+      {/* Avatar area */}
+      <View style={[styles.proCardImg, { backgroundColor: cardBg }]}>
+        {pro.logoUrl ? (
+          <Image source={{ uri: pro.logoUrl }} style={styles.proCardLogo} contentFit="cover" />
+        ) : (
+          <Text style={[styles.proCardImgText, { color: accentColor }]}>
+            {proInitial(pro)}
+          </Text>
+        )}
+
+        <TouchableOpacity
+          style={[styles.favBtn, { backgroundColor: c.surface }]}
+          onPress={onFavPress}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}>
+          <IconSymbol
+            name={isFav ? 'heart.fill' : 'heart'}
+            size={14}
+            color={isFav ? c.favActive : c.textTertiary}
+          />
+        </TouchableOpacity>
       </View>
 
-      {/* Corpo */}
+      {/* Body */}
       <View style={styles.proCardBody}>
-        <Text style={[styles.proCardName, { color: c.textPrimary }]}>{pro.name}</Text>
-        <Text style={[styles.proCardSpecialty, { color: c.textSecondary }]} numberOfLines={1}>
-          {pro.specialty}
+        <Text style={[styles.proCardName, { color: c.textPrimary }]}>
+          {proDisplayName(pro)}
         </Text>
-
-        <View style={styles.proCardMeta}>
-          <View style={styles.ratingRow}>
-            <Text style={[styles.star, { color: c.gold }]}>★</Text>
-            <Text style={[styles.ratingText, { color: c.textSecondary }]}>
-              {pro.rating}{' '}
-              <Text style={{ color: c.textTertiary }}>({pro.reviews})</Text>
-            </Text>
+        {!pro.displayName && !pro.name && (
+          <Text style={[styles.proCardLink, { color: accentColor }]} numberOfLines={1}>
+            @{pro.userLink}
+          </Text>
+        )}
+        {pro.serviceCategory && (
+          <View style={styles.categoryTags}>
+            {pro.serviceCategory
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .slice(0, 3)
+              .map((tag) => (
+                <View
+                  key={tag}
+                  style={[styles.categoryTag, { backgroundColor: cardBg, borderColor: `${accentColor}40` }]}>
+                  <Text style={[styles.categoryTagText, { color: accentColor }]}>{tag}</Text>
+                </View>
+              ))}
           </View>
-
-          <View style={[
-            styles.availBadge,
-            {
-              backgroundColor: pro.available ? c.successBg : c.subtle,
-              borderColor:     pro.available ? 'transparent' : c.border,
-            },
-          ]}>
-            <Text style={[
-              styles.availText,
-              { color: pro.available ? c.success : c.textTertiary },
-            ]}>
-              {pro.available ? '● Hoje' : '○ Indisponível'}
-            </Text>
-          </View>
-        </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -402,6 +467,41 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
 
+  // Favorites row
+  favScroll: { marginHorizontal: -20 },
+  favRow: {
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  favBubble: {
+    alignItems: 'center',
+    gap: 6,
+    width: 68,
+  },
+  favBubbleAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    overflow: 'hidden',
+  },
+  favBubbleImg: { width: '100%', height: '100%' },
+  favBubbleFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favBubbleInitial: {
+    fontFamily: 'CormorantGaramond_400Regular_Italic',
+    fontSize: 22,
+  },
+  favBubbleName: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 10,
+    letterSpacing: 0.1,
+    textAlign: 'center',
+  },
+
   // Categories
   categoriesScroll: { marginHorizontal: -20 },
   categoriesRow: {
@@ -431,11 +531,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     letterSpacing: -0.2,
   },
-  sectionLink: {
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 12,
-    letterSpacing: 0.1,
-  },
 
   // Pro grid
   proGrid: {
@@ -458,6 +553,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+  },
+  proCardLogo: {
+    width: '100%',
+    height: '100%',
   },
   proCardImgText: {
     fontFamily: 'CormorantGaramond_300Light_Italic',
@@ -488,37 +587,27 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 20,
   },
-  proCardSpecialty: {
+  proCardLink: {
     fontFamily: 'DMSans_400Regular',
     fontSize: 11,
     letterSpacing: 0.1,
-    marginBottom: 6,
   },
-  proCardMeta: {
+  categoryTags: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 6,
   },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  star: { fontSize: 12 },
-  ratingText: {
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 11,
-  },
-  availBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  categoryTag: {
     borderRadius: 999,
     borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
   },
-  availText: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 10,
-    letterSpacing: 0.05,
+  categoryTagText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 9,
+    letterSpacing: 0.1,
   },
 
   // Empty state

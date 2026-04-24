@@ -14,14 +14,30 @@ export function useAuth() {
 
   useEffect(() => {
     const unsubscribe = subscribeAuth(async (authUser) => {
-      if (authUser) {
+      setUser(authUser);
+
+      if (!authUser) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      try {
         const customerProfile = await ensureCustomerDoc(authUser);
         setProfile(customerProfile);
-      } else {
-        setProfile(null);
+      } catch (error) {
+        console.warn('[useAuth] ensureCustomerDoc failed', error);
+        const code = (error as { code?: string }).code ?? '';
+        if (code === 'permission-denied' || code === 'unauthenticated') {
+          setUser(null);
+          setProfile(null);
+          platformSignOut().catch((e) => console.warn('[useAuth] signOut after auth error', e));
+        } else {
+          setProfile(null);
+        }
+      } finally {
+        setLoading(false);
       }
-      setUser(authUser);
-      setLoading(false);
     });
 
     return unsubscribe;
