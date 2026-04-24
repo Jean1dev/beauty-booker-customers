@@ -13,6 +13,8 @@ import {
   View,
 } from 'react-native';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Palette } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfessionals } from '@/hooks/useProfessionals';
@@ -79,6 +81,7 @@ export default function HomeScreen() {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const { width } = useWindowDimensions();
+  const { top: topInset } = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState('all');
   const { professionals, favorites, loading, toggleFavorite } = useProfessionals();
 
@@ -117,7 +120,7 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={[styles.root, { backgroundColor: c.bg }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: topInset + 20 }]}
       showsVerticalScrollIndicator={false}>
 
       {/* ── Header ── */}
@@ -328,7 +331,6 @@ function ProCard({
 }) {
   const cardBg      = pro.theme?.primary ? `${pro.theme.primary}18` : c.accentLight;
   const accentColor = pro.theme?.accent  ?? c.accent;
-  const textColor   = pro.theme?.accent  ?? c.avatarText;
   const borderColor = pro.theme?.accent  ? `${pro.theme.accent}40` : c.border;
 
   return (
