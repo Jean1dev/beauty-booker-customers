@@ -8,6 +8,7 @@ import Constants from 'expo-constants';
 import {
   GoogleAuthProvider as JSGoogleAuthProvider,
   signInWithCredential as jsSignInWithCredential,
+  signOut as jsSignOut,
 } from 'firebase/auth';
 import { useCallback, useState } from 'react';
 
@@ -73,23 +74,25 @@ export function useGoogleSignIn() {
         return;
       }
 
-      const credential = GoogleAuthProvider.credential(idToken);
-      await auth().signInWithCredential(credential);
+      // JS SDK must be authenticated before RNFB so that Firestore is accessible
+      // when onAuthStateChanged fires and ensureCustomerDoc runs.
+      const jsCredential = JSGoogleAuthProvider.credential(idToken);
+      await jsSignInWithCredential(jsAuth, jsCredential);
 
       try {
-        const jsCredential = JSGoogleAuthProvider.credential(idToken);
-        await jsSignInWithCredential(jsAuth, jsCredential);
-      } catch (jsAuthError) {
-        console.warn('[google-auth] JS SDK sign-in failed, rolling back RNFB session', jsAuthError);
+        const credential = GoogleAuthProvider.credential(idToken);
+        await auth().signInWithCredential(credential);
+      } catch (rnfbError) {
+        console.warn('[google-auth] RNFB sign-in failed, rolling back JS SDK session', rnfbError);
         try {
-          await auth().signOut();
+          await jsSignOut(jsAuth);
         } catch (rollbackError) {
-          console.warn('[google-auth] RNFB rollback failed', rollbackError);
+          console.warn('[google-auth] JS SDK rollback failed', rollbackError);
         }
         try {
           await GoogleSignin.signOut();
         } catch {}
-        throw jsAuthError;
+        throw rnfbError;
       }
     } catch (error) {
       if (isErrorWithCode(error)) {

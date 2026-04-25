@@ -1,7 +1,7 @@
 import auth from '@react-native-firebase/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
-import { OAuthProvider, signInWithCredential as jsSignInWithCredential } from 'firebase/auth';
+import { OAuthProvider, signInWithCredential as jsSignInWithCredential, signOut as jsSignOut } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 
 import { showAlert } from '@/platform/alert';
@@ -38,19 +38,19 @@ export function useAppleSignIn() {
         return;
       }
 
-      // RNFB sign-in (drives onAuthStateChanged → auth store → navigation)
-      const rnfbCredential = auth.AppleAuthProvider.credential(identityToken, nonce);
-      await auth().signInWithCredential(rnfbCredential);
+      // JS SDK must be authenticated before RNFB so that Firestore is accessible
+      // when onAuthStateChanged fires and ensureCustomerDoc runs.
+      const provider = new OAuthProvider('apple.com');
+      const jsCredential = provider.credential({ idToken: identityToken, rawNonce: nonce });
+      await jsSignInWithCredential(jsAuth, jsCredential);
 
-      // JS SDK sign-in (needed for Firestore/Storage access)
       try {
-        const provider = new OAuthProvider('apple.com');
-        const jsCredential = provider.credential({ idToken: identityToken, rawNonce: nonce });
-        await jsSignInWithCredential(jsAuth, jsCredential);
-      } catch (jsAuthError) {
-        console.warn('[apple-auth] JS SDK sign-in failed, rolling back RNFB session', jsAuthError);
-        try { await auth().signOut(); } catch {}
-        throw jsAuthError;
+        const rnfbCredential = auth.AppleAuthProvider.credential(identityToken, nonce);
+        await auth().signInWithCredential(rnfbCredential);
+      } catch (rnfbError) {
+        console.warn('[apple-auth] RNFB sign-in failed, rolling back JS SDK session', rnfbError);
+        try { await jsSignOut(jsAuth); } catch {}
+        throw rnfbError;
       }
     } catch (error: unknown) {
       const code =
