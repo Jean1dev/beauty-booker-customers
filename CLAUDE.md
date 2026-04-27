@@ -83,6 +83,67 @@ All prefixed `EXPO_PUBLIC_` (required for Expo to expose them to the JS bundle).
 
 For Android Google Sign-In to work, the app's SHA-1 must be registered in the Firebase console **before** downloading `google-services.json`.
 
+## Safe Area / Dynamic Island — obrigatório em toda tela nova
+
+**Toda tela nova deve aplicar `useSafeAreaInsets` para evitar sobreposição com Dynamic Island, notch e status bar.**
+
+### Regra
+
+- **Tab screens** (ScrollView com header próprio): usar `paddingTop: topInset + <base>` no `contentContainerStyle`
+- **Auth/full-screen views** (layout centralizado com barra decorativa): aplicar `paddingTop: topInset` no view raiz
+- **Nunca** usar `paddingTop` fixo no topo sem somar o `topInset`
+- `SafeAreaProvider` já está no contexto via Expo Router — não é necessário adicionar manualmente
+
+### Snippet — tab screen com ScrollView
+
+```tsx
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+export default function MyScreen() {
+  const { top: topInset } = useSafeAreaInsets();
+
+  return (
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={[styles.content, { paddingTop: topInset + 24 }]}>
+      {/* conteúdo */}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 48,
+    // NÃO coloque paddingTop aqui — aplique dinamicamente via topInset acima
+  },
+});
+```
+
+### Snippet — full-screen view (welcome / onboarding)
+
+```tsx
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+export default function MyFullScreen() {
+  const { top: topInset } = useSafeAreaInsets();
+
+  return (
+    <View style={[styles.root, { paddingTop: topInset }]}>
+      {/* decorative bar ou conteúdo */}
+    </View>
+  );
+}
+```
+
+### Checklist para code review de nova tela
+
+- [ ] Importa `useSafeAreaInsets` de `react-native-safe-area-context`
+- [ ] Desestrutura `top: topInset` no corpo do componente
+- [ ] Aplica `topInset` no `paddingTop` do container/ScrollView raiz
+- [ ] Não usa valor fixo de `paddingTop` no topo sem `topInset`
+
 ## Testing
 
 Full guide in `TESTING_GUIDE.md`. Stack: Jest + `@testing-library/react-native` (unit/integration) + Maestro (E2E).

@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/theme';
 import { signOut } from '@/platform/auth';
@@ -42,6 +43,7 @@ export default function SetupPhoneScreen() {
   const scheme    = useColorScheme();
   const dark      = scheme === 'dark';
   const { width } = useWindowDimensions();
+  const { top: topInset } = useSafeAreaInsets();
 
   const { user, setProfile, setUser } = useAuthStore();
 
@@ -108,7 +110,7 @@ export default function SetupPhoneScreen() {
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
 
       <KeyboardAvoidingView
-        style={[styles.root, { backgroundColor: colors.bg }]}
+        style={[styles.root, { backgroundColor: colors.bg, paddingTop: topInset }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
         <View style={[styles.topBar, { backgroundColor: colors.accent }]} />

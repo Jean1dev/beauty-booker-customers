@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/theme';
 import { AppleSignInButton } from '@/platform/apple-sign-in-button';
@@ -18,6 +19,7 @@ export default function WelcomeScreen() {
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const { height } = useWindowDimensions();
+  const { top: topInset } = useSafeAreaInsets();
 
   const colors = {
     bg:            dark ? Palette.neutral[900]  : Palette.neutral[50],
@@ -34,7 +36,7 @@ export default function WelcomeScreen() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+    <View style={[styles.root, { backgroundColor: colors.bg, paddingTop: topInset }]}>
       {/* Decorative top bar */}
       <View style={[styles.topBar, { backgroundColor: colors.accent }]} />
 
