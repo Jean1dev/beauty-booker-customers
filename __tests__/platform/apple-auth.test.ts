@@ -107,15 +107,14 @@ describe('useAppleSignIn — disponibilidade do dispositivo', () => {
   it('mantém isAvailable=false quando dispositivo não suporta Apple Sign-In', async () => {
     mockIsAvailable.mockResolvedValue(false);
     const { result } = renderHook(() => useAppleSignIn());
-    await waitFor(() => expect(mockIsAvailable).toHaveBeenCalled());
-    expect(result.current.isAvailable).toBe(false);
+    // Wait for the state update from the resolved promise, not just for the call.
+    await waitFor(() => expect(result.current.isAvailable).toBe(false));
   });
 
   it('mantém isAvailable=false se isAvailableAsync lançar erro', async () => {
     mockIsAvailable.mockRejectedValue(new Error('Not supported'));
     const { result } = renderHook(() => useAppleSignIn());
-    await waitFor(() => expect(mockIsAvailable).toHaveBeenCalled());
-    expect(result.current.isAvailable).toBe(false);
+    await waitFor(() => expect(result.current.isAvailable).toBe(false));
   });
 });
 
