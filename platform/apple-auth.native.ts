@@ -3,13 +3,18 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import { OAuthProvider, signInWithCredential as jsSignInWithCredential, signOut as jsSignOut } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { showAlert } from '@/platform/alert';
 import { auth as jsAuth } from '@/services/firebase';
 
 export function useAppleSignIn() {
   const [loading, setLoading] = useState(false);
-  const [isAvailable, setIsAvailable] = useState(false);
+  // Optimistic default: on iOS the entitlement is configured (usesAppleSignIn: true in
+  // app.config.js), so isAvailableAsync() will always return true. Starting as true
+  // prevents the button from flashing absent while the async check resolves (or silently
+  // failing in TestFlight when the native module initialises later than the first render).
+  const [isAvailable, setIsAvailable] = useState(Platform.OS === 'ios');
 
   useEffect(() => {
     AppleAuthentication.isAvailableAsync().then(setIsAvailable).catch(() => setIsAvailable(false));

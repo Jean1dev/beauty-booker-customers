@@ -90,10 +90,12 @@ beforeEach(() => {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('useAppleSignIn — disponibilidade do dispositivo', () => {
-  it('começa com isAvailable=false antes de isAvailableAsync resolver', () => {
+  it('começa com isAvailable=true em iOS antes de isAvailableAsync resolver (optimistic default)', () => {
     mockIsAvailable.mockReturnValue(new Promise(() => {}));
     const { result } = renderHook(() => useAppleSignIn());
-    expect(result.current.isAvailable).toBe(false);
+    // Platform.OS is 'ios' in the test environment for .native files, so the
+    // optimistic default kicks in and the button is shown immediately.
+    expect(result.current.isAvailable).toBe(true);
   });
 
   it('define isAvailable=true quando Apple Sign-In é suportado', async () => {
