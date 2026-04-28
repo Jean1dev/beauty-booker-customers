@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { showAlert, showConfirm } from '@/platform/alert';
 import { Palette } from '@/constants/theme';
@@ -28,6 +29,7 @@ export default function PerfilScreen() {
   const { profile, signOut, deleteAccount } = useAuth();
   const scheme = useColorScheme();
   const dark   = scheme === 'dark';
+  const { top: topInset } = useSafeAreaInsets();
   const [deleting, setDeleting] = useState(false);
 
   const c = {
@@ -83,7 +85,7 @@ export default function PerfilScreen() {
   return (
     <ScrollView
       style={[styles.root, { backgroundColor: c.bg }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: topInset + 24 }]}
       showsVerticalScrollIndicator={false}>
 
       {/* ── Hero ── */}
@@ -192,7 +194,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 24,
     paddingBottom: 48,
     gap: 16,
     maxWidth: 480,

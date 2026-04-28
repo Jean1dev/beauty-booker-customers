@@ -90,10 +90,12 @@ beforeEach(() => {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('useAppleSignIn — disponibilidade do dispositivo', () => {
-  it('começa com isAvailable=false antes de isAvailableAsync resolver', () => {
+  it('começa com isAvailable=true em iOS antes de isAvailableAsync resolver (optimistic default)', () => {
     mockIsAvailable.mockReturnValue(new Promise(() => {}));
     const { result } = renderHook(() => useAppleSignIn());
-    expect(result.current.isAvailable).toBe(false);
+    // Platform.OS is 'ios' in the test environment for .native files, so the
+    // optimistic default kicks in and the button is shown immediately.
+    expect(result.current.isAvailable).toBe(true);
   });
 
   it('define isAvailable=true quando Apple Sign-In é suportado', async () => {
@@ -105,15 +107,14 @@ describe('useAppleSignIn — disponibilidade do dispositivo', () => {
   it('mantém isAvailable=false quando dispositivo não suporta Apple Sign-In', async () => {
     mockIsAvailable.mockResolvedValue(false);
     const { result } = renderHook(() => useAppleSignIn());
-    await waitFor(() => expect(mockIsAvailable).toHaveBeenCalled());
-    expect(result.current.isAvailable).toBe(false);
+    // Wait for the state update from the resolved promise, not just for the call.
+    await waitFor(() => expect(result.current.isAvailable).toBe(false));
   });
 
   it('mantém isAvailable=false se isAvailableAsync lançar erro', async () => {
     mockIsAvailable.mockRejectedValue(new Error('Not supported'));
     const { result } = renderHook(() => useAppleSignIn());
-    await waitFor(() => expect(mockIsAvailable).toHaveBeenCalled());
-    expect(result.current.isAvailable).toBe(false);
+    await waitFor(() => expect(result.current.isAvailable).toBe(false));
   });
 });
 

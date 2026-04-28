@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -53,6 +54,7 @@ export default function AgendaScreen() {
   const scheme = useColorScheme();
   const dark   = scheme === 'dark';
   const { width } = useWindowDimensions();
+  const { top: topInset } = useSafeAreaInsets();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading,      setLoading]      = useState(true);
@@ -137,7 +139,7 @@ export default function AgendaScreen() {
   return (
     <ScrollView
       style={[styles.root, { backgroundColor: c.bg }]}
-      contentContainerStyle={[styles.content, { maxWidth: Math.min(width, 600) }]}
+      contentContainerStyle={[styles.content, { maxWidth: Math.min(width, 600), paddingTop: topInset + 24 }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -289,7 +291,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 24,
     paddingBottom: 48,
     gap: 20,
     alignSelf: 'center',
