@@ -1,29 +1,16 @@
-import { createElement } from 'react';
-import { Text, View } from 'react-native';
+// Fallback entry for ESLint's import/no-unresolved (eslint-config-expo's resolver
+// does not understand Metro's platform-suffix resolution).
+//
+// Metro's dev server prefers `.native.tsx` / `.web.tsx` over this file, but EAS
+// production bundles have been observed loading this file instead. So this
+// fallback MUST dispatch to the correct implementation at runtime — re-exporting
+// the web stub statically would silently render null on iOS in production
+// (the actual bug we just spent 6 PRs hunting).
+import { Platform } from 'react-native';
 
-export function AppleSignInButton() {
-  return createElement(
-    View,
-    {
-      style: {
-        backgroundColor: '#dc3545',
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        borderRadius: 6,
-        alignSelf: 'stretch',
-      },
-    },
-    createElement(
-      Text,
-      {
-        style: {
-          color: '#ffffff',
-          fontSize: 11,
-          textAlign: 'center',
-          fontFamily: 'DMSans_500Medium',
-        },
-      },
-      'DEBUG: FALLBACK .ts FILE LOADED (Metro picked the wrong file)',
-    ),
-  );
-}
+const impl =
+  Platform.OS === 'web'
+    ? require('./apple-sign-in-button.web')
+    : require('./apple-sign-in-button.native');
+
+export const AppleSignInButton = impl.AppleSignInButton;
