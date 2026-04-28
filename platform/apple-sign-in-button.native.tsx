@@ -32,6 +32,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   button: {
+    width: '100%',
     height: 52,
   },
 });
