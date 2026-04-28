@@ -111,10 +111,14 @@ describe('useAppleSignIn — disponibilidade do dispositivo', () => {
     await waitFor(() => expect(result.current.isAvailable).toBe(false));
   });
 
-  it('mantém isAvailable=false se isAvailableAsync lançar erro', async () => {
+  it('mantém isAvailable=true (default otimístico) se isAvailableAsync lançar erro', async () => {
+    // Em TestFlight, isAvailableAsync() lançando exceção ANTES da resolver estava
+    // escondendo o botão silenciosamente. O comportamento correto em iOS é confiar
+    // no default otimístico — o entitlement já está garantido por usesAppleSignIn.
     mockIsAvailable.mockRejectedValue(new Error('Not supported'));
     const { result } = renderHook(() => useAppleSignIn());
-    await waitFor(() => expect(result.current.isAvailable).toBe(false));
+    await waitFor(() => expect(mockIsAvailable).toHaveBeenCalled());
+    expect(result.current.isAvailable).toBe(true);
   });
 });
 
