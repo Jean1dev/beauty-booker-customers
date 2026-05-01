@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showAlert, showConfirm } from '@/platform/alert';
 import { Palette } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { LoginWall } from '@/components/login-wall';
 
 function formatPhone(raw: string | null): string {
   if (!raw) return '—';
@@ -80,7 +81,18 @@ export default function PerfilScreen() {
     );
   }
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <ScrollView
+        style={[styles.root, { backgroundColor: c.bg }]}
+        contentContainerStyle={[styles.content, { paddingTop: topInset + 24 }]}>
+        <LoginWall
+          title="Seu perfil"
+          body="Entre na sua conta para acessar seu perfil, gerenciar seus dados e preferências."
+        />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView

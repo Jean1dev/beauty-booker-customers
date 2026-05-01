@@ -77,7 +77,7 @@ function proMatchesCategory(pro: Professional, categoryLabel: string): boolean {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const scheme = useColorScheme();
   const dark = scheme === 'dark';
   const { width } = useWindowDimensions();
@@ -111,10 +111,22 @@ export default function HomeScreen() {
   const cardWidth = Math.min((width - 20 * 2 - 12) / 2, 220);
 
   const openBooking = async (userLink: string) => {
+    if (!user) {
+      router.push('/welcome');
+      return;
+    }
     const url = profile?.phone
       ? `https://bookpro.me/book/${userLink}?phoneNumber=${encodeURIComponent(profile.phone)}`
       : `https://bookpro.me/book/${userLink}`;
     await WebBrowser.openBrowserAsync(url);
+  };
+
+  const handleToggleFavorite = (userLink: string) => {
+    if (!user) {
+      router.push('/welcome');
+      return;
+    }
+    toggleFavorite(userLink);
   };
 
   return (
@@ -130,7 +142,7 @@ export default function HomeScreen() {
             {greeting()},
           </Text>
           <Text style={[styles.greetingName, { color: c.textPrimary }]}>
-            {profile?.name ? firstName(profile.name) : 'bem-vinda'} ✦
+            {profile?.name ? firstName(profile.name) : 'visitante'} ✦
           </Text>
           <Text style={[styles.dateText, { color: c.textTertiary }]}>
             {today()}
@@ -139,7 +151,7 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={[styles.headerAvatar, { borderColor: c.accent }]}
-          onPress={() => router.push('/(tabs)/perfil')}
+          onPress={() => router.push(user ? '/(tabs)/perfil' : '/welcome')}
           activeOpacity={0.8}>
           {profile?.photoUrl ? (
             <Image
@@ -247,7 +259,7 @@ export default function HomeScreen() {
               width={cardWidth}
               colors={c}
               isFav={favorites.has(pro.userLink)}
-              onFavPress={() => toggleFavorite(pro.userLink)}
+              onFavPress={() => handleToggleFavorite(pro.userLink)}
               onPress={() => openBooking(pro.userLink)}
             />
           ))}
