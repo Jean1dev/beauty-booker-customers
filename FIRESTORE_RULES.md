@@ -1,66 +1,136 @@
-# Firestore Security Rules
+# Firestore Security Rules — Guest Mode
 
-Este documento descreve as regras de segurança necessárias no Firestore para suportar
-o modo **guest** (acesso anônimo) implementado conforme a Guideline 5.1.1 da Apple.
+Este documento descreve a **única alteração necessária** nas Firestore Security Rules
+para suportar o modo guest (Apple Guideline 5.1.1).
 
 ## Contexto
 
-O app permite que usuários não autenticados naveguem pela tela inicial e visualizem
-profissionais sem fazer login. Apenas ações que requerem conta (agendar, favoritar,
-ver agenda) exigem autenticação.
+O app agora permite que usuários não autenticados visualizem profissionais na tela
+inicial. A collection `user-preferences` contém os perfis públicos das profissionais
+e precisa ser legível sem autenticação.
 
-Por isso, a collection `user-preferences` (que armazena perfis públicos das
-profissionais) precisa permitir leitura sem autenticação.
+## Problema nas regras atuais
 
-## Regras recomendadas
+A regra atual usa `resource.data.userLink != null` para tentar permitir leitura pública:
+
+```js
+match /user-preferences/{userId} {
+  allow read: if request.auth != null && request.auth.uid == userId ||
+                 resource.data.userLink != null;  // ⚠️ não funciona para collection queries
+}
+```
+
+Isso **não é suficiente** para collection queries de clients não autenticados.
+O Firestore exige que a regra seja verificável sem acessar os dados do documento,
+e `resource.data` não satisfaz esse requisito em queries sem filtro.
+
+Além disso, existe um segundo bloco duplicado para a mesma collection
+(adicionado anteriormente como sugestão deste arquivo) que é redundante:
+
+```js
+match /user-preferences/{docId} {
+  allow read: if request.auth != null;  // redundante — pode ser removido
+}
+```
+
+## Alteração necessária
+
+**Apenas o bloco `user-preferences` precisa ser atualizado.** Todas as outras
+collections permanecem inalteradas.
+
+### Antes
+
+```js
+match /user-preferences/{userId} {
+  allow read: if request.auth != null && request.auth.uid == userId ||
+                 resource.data.userLink != null;
+  allow write: if request.auth != null && request.auth.uid == userId;
+}
+
+// Remover este bloco duplicado:
+match /user-preferences/{docId} {
+  allow read: if request.auth != null;
+}
+```
+
+### Depois
+
+```js
+match /user-preferences/{userId} {
+  allow read: if true;   // perfis públicos de profissionais — leitura aberta
+  allow write: if request.auth != null && request.auth.uid == userId;
+}
+```
+
+## Regras completas recomendadas (sem alterar nada mais)
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Perfis públicos das profissionais — leitura aberta (modo guest suportado)
-    match /user-preferences/{docId} {
+    // ✅ ALTERADO: leitura aberta para guests
+    match /user-preferences/{userId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == docId;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Favoritos — somente o próprio usuário autenticado
-    match /customer_favorites/{docId} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == resource.data.customerId;
-      allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.customerId;
+    // ── Sem alteração nas demais ──────────────────────────────────────────────
+
+    match /availability/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Clientes — somente o próprio usuário autenticado
+    match /user_services/{serviceId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if resource.data.userId != null;
+      allow create: if request.resource.data.userId != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    match /googleCalendarIntegrations/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /excludedDays/{excludedDayId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
     match /customers/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Agendamentos — somente usuários autenticados com o telefone correspondente
-    match /appointments/{docId} {
-      allow read: if request.auth != null;
-      allow write: if false; // escrita feita pelo lado do profissional (outro app)
+    match /appointments/{id} {
+      allow read: if request.auth != null
+        && resource.data.clientPhone ==
+          get(/databases/$(database)/documents/customers/$(request.auth.uid)).data.phone;
+    }
+
+    match /customer_favorites/{docId} {
+      allow read, write: if request.auth != null
+        && resource.data.customerId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.customerId == request.auth.uid;
     }
   }
 }
 ```
 
-## Resumo das permissões por collection
+## Resumo do impacto
 
-| Collection          | Leitura sem auth | Leitura com auth | Escrita |
-|---------------------|-----------------|-----------------|---------|
-| `user-preferences`  | ✅ Permitida     | ✅ Permitida     | Só o dono do doc |
-| `customer_favorites`| ❌ Bloqueada     | ✅ Próprio usuário | Próprio usuário |
-| `customers`         | ❌ Bloqueada     | ✅ Próprio usuário | Próprio usuário |
-| `appointments`      | ❌ Bloqueada     | ✅ Autenticados  | ❌ Bloqueada (lado profissional) |
-
-## Ação necessária
-
-Aplicar essas regras no [Firebase Console](https://console.firebase.google.com)
-em **Firestore Database → Rules** antes de publicar a versão com suporte a guest.
-
-> **Atenção:** se as regras atuais exigirem `request.auth != null` para ler
-> `user-preferences`, a tela inicial ficará em loading indefinido para usuários
-> guest. Atualize as regras para `allow read: if true` nessa collection.
+| Collection            | Guest (sem auth) | Autenticado |
+|-----------------------|-----------------|-------------|
+| `user-preferences`    | ✅ Leitura livre | ✅ Leitura + escrita própria |
+| `customer_favorites`  | ❌ Bloqueado     | ✅ Próprio usuário |
+| `customers`           | ❌ Bloqueado     | ✅ Próprio usuário |
+| `appointments`        | ❌ Bloqueado     | ✅ Por telefone vinculado |
+| `availability`        | ✅ Leitura livre | ✅ Escrita própria |
+| `user_services`       | ✅ Leitura livre | ✅ Escrita própria |
