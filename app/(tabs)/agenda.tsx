@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Palette } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { LoginWall } from '@/components/login-wall';
 import { subscribeAppointments } from '@/services/appointments';
 import { Appointment, AppointmentStatus } from '@/types/appointment';
 
@@ -50,7 +51,7 @@ const STATUS_CONFIG: Record<AppointmentStatus, { label: string; dot: string }> =
 type Tab = 'upcoming' | 'history';
 
 export default function AgendaScreen() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const scheme = useColorScheme();
   const dark   = scheme === 'dark';
   const { width } = useWindowDimensions();
@@ -191,8 +192,13 @@ export default function AgendaScreen() {
         })}
       </View>
 
-      {/* ── Content ── */}
-      {loading ? (
+      {/* ── Login wall for guests ── */}
+      {!user ? (
+        <LoginWall
+          title="Sua agenda está aqui"
+          body="Entre na sua conta para ver seus agendamentos e histórico de serviços."
+        />
+      ) : loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={c.accent} size="large" />
         </View>

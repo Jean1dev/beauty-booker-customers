@@ -56,7 +56,9 @@ export default function RootLayout() {
     const inAuthFlow = inWelcome || inSetupPhone;
 
     if (!user) {
-      if (!inWelcome) router.replace('/welcome');
+      // Guests can browse /(tabs)/index freely.
+      // Redirect only if they somehow land on setup-phone without being logged in.
+      if (inSetupPhone) router.replace('/welcome');
       return;
     }
 
