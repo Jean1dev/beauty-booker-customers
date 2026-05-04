@@ -111,10 +111,6 @@ export default function HomeScreen() {
   const cardWidth = Math.min((width - 20 * 2 - 12) / 2, 220);
 
   const openBooking = async (userLink: string) => {
-    if (!user) {
-      router.push('/welcome');
-      return;
-    }
     const url = profile?.phone
       ? `https://bookpro.me/book/${userLink}?phoneNumber=${encodeURIComponent(profile.phone)}`
       : `https://bookpro.me/book/${userLink}`;
