@@ -1,15 +1,13 @@
-import auth, { GoogleAuthProvider } from '@react-native-firebase/auth';
+import {
+  GoogleAuthProvider as JSGoogleAuthProvider,
+  signInWithCredential as jsSignInWithCredential,
+} from 'firebase/auth';
 import {
   GoogleSignin,
   isErrorWithCode,
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
-import {
-  GoogleAuthProvider as JSGoogleAuthProvider,
-  signInWithCredential as jsSignInWithCredential,
-  signOut as jsSignOut,
-} from 'firebase/auth';
 import { useCallback, useState } from 'react';
 
 import { showAlert } from '@/platform/alert';
@@ -74,26 +72,8 @@ export function useGoogleSignIn() {
         return;
       }
 
-      // JS SDK must be authenticated before RNFB so that Firestore is accessible
-      // when onAuthStateChanged fires and ensureCustomerDoc runs.
       const jsCredential = JSGoogleAuthProvider.credential(idToken);
       await jsSignInWithCredential(jsAuth, jsCredential);
-
-      try {
-        const credential = GoogleAuthProvider.credential(idToken);
-        await auth().signInWithCredential(credential);
-      } catch (rnfbError) {
-        console.warn('[google-auth] RNFB sign-in failed, rolling back JS SDK session', rnfbError);
-        try {
-          await jsSignOut(jsAuth);
-        } catch (rollbackError) {
-          console.warn('[google-auth] JS SDK rollback failed', rollbackError);
-        }
-        try {
-          await GoogleSignin.signOut();
-        } catch {}
-        throw rnfbError;
-      }
     } catch (error) {
       if (isErrorWithCode(error)) {
         if (error.code === statusCodes.SIGN_IN_CANCELLED) return;

@@ -60,7 +60,7 @@ export default function PerfilScreen() {
   function handleDeleteAccount() {
     showConfirm(
       'Excluir conta e dados',
-      'Todos os seus dados serão apagados permanentemente. Essa ação não pode ser desfeita.\n\nVocê precisará confirmar sua identidade com o Google para prosseguir.',
+      'Todos os seus dados serão apagados permanentemente. Essa ação não pode ser desfeita.\n\nVocê precisará confirmar sua identidade para prosseguir.',
       () => {
         showConfirm(
           'Tem certeza absoluta?',
