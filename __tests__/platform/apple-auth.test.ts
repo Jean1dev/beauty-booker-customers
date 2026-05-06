@@ -2,10 +2,6 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useAppleSignIn } from '@/platform/apple-auth.native';
 
-// ── Call-order tracker ────────────────────────────────────────────────────────
-
-const callOrder: string[] = [];
-
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 const mockIsAvailable = jest.fn();
@@ -24,30 +20,13 @@ jest.mock('expo-crypto', () => ({
   CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
 }));
 
-const mockRnfbSignIn  = jest.fn();
-const mockRnfbSignOut = jest.fn();
-
-jest.mock('@react-native-firebase/auth', () => {
-  const instance = {
-    signInWithCredential: (...args: unknown[]) => mockRnfbSignIn(...args),
-    signOut:              (...args: unknown[]) => mockRnfbSignOut(...args),
-  };
-  const authFn = jest.fn(() => instance);
-  (authFn as any).AppleAuthProvider = {
-    credential: jest.fn((token: string, nonce: string) => ({ token, nonce })),
-  };
-  return { __esModule: true, default: authFn };
-});
-
-const mockJsSignIn  = jest.fn();
-const mockJsSignOut = jest.fn();
+const mockJsSignIn = jest.fn();
 
 jest.mock('firebase/auth', () => ({
   OAuthProvider: jest.fn().mockImplementation(() => ({
     credential: jest.fn((opts: unknown) => ({ provider: 'apple.com', ...((opts as object) ?? {}) })),
   })),
   signInWithCredential: (...args: unknown[]) => mockJsSignIn(...args),
-  signOut:              (...args: unknown[]) => mockJsSignOut(...args),
 }));
 
 jest.mock('@/services/firebase', () => ({ auth: {}, db: {}, storage: {} }));
@@ -76,15 +55,11 @@ const appleResult = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  callOrder.length = 0;
 
   mockIsAvailable.mockResolvedValue(true);
   mockCryptoDigest.mockResolvedValue(hashedNonce);
   mockAppleSignIn.mockResolvedValue(appleResult);
-  mockJsSignIn.mockImplementation(async () => { callOrder.push('js-sdk'); });
-  mockRnfbSignIn.mockImplementation(async () => { callOrder.push('rnfb'); });
-  mockJsSignOut.mockResolvedValue(undefined);
-  mockRnfbSignOut.mockResolvedValue(undefined);
+  mockJsSignIn.mockResolvedValue(undefined);
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -107,7 +82,6 @@ describe('useAppleSignIn — disponibilidade do dispositivo', () => {
   it('mantém isAvailable=false quando dispositivo não suporta Apple Sign-In', async () => {
     mockIsAvailable.mockResolvedValue(false);
     const { result } = renderHook(() => useAppleSignIn());
-    // Wait for the state update from the resolved promise, not just for the call.
     await waitFor(() => expect(result.current.isAvailable).toBe(false));
   });
 
@@ -122,77 +96,24 @@ describe('useAppleSignIn — disponibilidade do dispositivo', () => {
   });
 });
 
-describe('useAppleSignIn — ordem de autenticação (fix race condition)', () => {
-  it('autentica JS SDK antes do RNFB para que Firestore esteja disponível quando onAuthStateChanged disparar', async () => {
-    const { result } = renderHook(() => useAppleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(callOrder).toEqual(['js-sdk', 'rnfb']);
-  });
-
-  it('invocationCallOrder confirma: jsSignInWithCredential < auth().signInWithCredential', async () => {
+describe('useAppleSignIn — autenticação via JS SDK', () => {
+  it('chama jsSignInWithCredential uma única vez em sign-in bem-sucedido', async () => {
     const { result } = renderHook(() => useAppleSignIn());
 
     await act(async () => { await result.current.signIn(); });
 
     expect(mockJsSignIn).toHaveBeenCalledTimes(1);
-    expect(mockRnfbSignIn).toHaveBeenCalledTimes(1);
-    expect(mockJsSignIn.mock.invocationCallOrder[0])
-      .toBeLessThan(mockRnfbSignIn.mock.invocationCallOrder[0]);
   });
 
-  it('ambos os SDKs são chamados em um sign-in bem-sucedido', async () => {
+  it('passa o identityToken e rawNonce corretos para o JS SDK', async () => {
     const { result } = renderHook(() => useAppleSignIn());
 
     await act(async () => { await result.current.signIn(); });
 
-    expect(mockJsSignIn).toHaveBeenCalledTimes(1);
-    expect(mockRnfbSignIn).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('useAppleSignIn — rollback quando RNFB falha', () => {
-  beforeEach(() => {
-    mockRnfbSignIn.mockRejectedValue(new Error('RNFB Apple credential error'));
-  });
-
-  it('faz signOut no JS SDK para reverter a sessão', async () => {
-    const { result } = renderHook(() => useAppleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(mockJsSignOut).toHaveBeenCalledTimes(1);
-  });
-
-  it('exibe alerta de erro ao usuário', async () => {
-    const { result } = renderHook(() => useAppleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(mockShowAlert).toHaveBeenCalledWith('Erro', expect.any(String));
-  });
-});
-
-describe('useAppleSignIn — JS SDK falha antes do RNFB', () => {
-  beforeEach(() => {
-    mockJsSignIn.mockRejectedValue(new Error('JS SDK error'));
-  });
-
-  it('não chama RNFB quando JS SDK falha', async () => {
-    const { result } = renderHook(() => useAppleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(mockRnfbSignIn).not.toHaveBeenCalled();
-  });
-
-  it('não faz rollback (RNFB nunca foi chamado)', async () => {
-    const { result } = renderHook(() => useAppleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(mockRnfbSignOut).not.toHaveBeenCalled();
+    expect(mockJsSignIn).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ provider: 'apple.com', idToken: identityToken }),
+    );
   });
 });
 
@@ -205,7 +126,6 @@ describe('useAppleSignIn — estado de loading', () => {
   it('loading=true durante o sign-in e false ao terminar', async () => {
     let resolveJsSignIn!: () => void;
     mockJsSignIn.mockReturnValue(new Promise<void>(res => { resolveJsSignIn = res; }));
-    mockRnfbSignIn.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useAppleSignIn());
 
@@ -259,11 +179,22 @@ describe('useAppleSignIn — tratamento de erros', () => {
 
     expect(mockShowAlert).toHaveBeenCalledWith('Erro', expect.stringContaining('token'));
     expect(mockJsSignIn).not.toHaveBeenCalled();
-    expect(mockRnfbSignIn).not.toHaveBeenCalled();
   });
 
-  it('exibe alerta para erros genéricos', async () => {
+  it('exibe alerta para erros genéricos de sign-in', async () => {
     mockJsSignIn.mockRejectedValue(new Error('Network request failed'));
+    const { result } = renderHook(() => useAppleSignIn());
+
+    await act(async () => { await result.current.signIn(); });
+
+    expect(mockShowAlert).toHaveBeenCalledWith('Erro', expect.any(String));
+  });
+
+  it('exibe alerta quando Apple retorna erro de credencial duplicada', async () => {
+    const dupError = Object.assign(new Error('Duplicate credential received.'), {
+      code: 'auth/unknown',
+    });
+    mockJsSignIn.mockRejectedValue(dupError);
     const { result } = renderHook(() => useAppleSignIn());
 
     await act(async () => { await result.current.signIn(); });

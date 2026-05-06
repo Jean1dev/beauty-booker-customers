@@ -1,12 +1,18 @@
-import { auth as jsAuth } from '@/services/firebase';
-import auth, { FirebaseAuthTypes, GoogleAuthProvider } from '@react-native-firebase/auth';
+import {
+  GoogleAuthProvider as JSGoogleAuthProvider,
+  User as JSUser,
+  deleteUser,
+  onAuthStateChanged,
+  reauthenticateWithCredential,
+  signOut as jsSignOut,
+} from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
-import { signOut as jsSignOut } from 'firebase/auth';
 
+import { auth as jsAuth } from '@/services/firebase';
 import type { AuthListener, AuthUser } from './auth';
 
-function toAuthUser(user: FirebaseAuthTypes.User | null): AuthUser | null {
+function toAuthUser(user: JSUser | null): AuthUser | null {
   if (!user) return null;
   return {
     uid: user.uid,
@@ -17,7 +23,7 @@ function toAuthUser(user: FirebaseAuthTypes.User | null): AuthUser | null {
 }
 
 export function subscribeAuth(listener: AuthListener): () => void {
-  return auth().onAuthStateChanged((user) => {
+  return onAuthStateChanged(jsAuth, (user) => {
     Promise.resolve(listener(toAuthUser(user))).catch((error) => {
       console.warn('[auth] subscribeAuth listener threw', error);
     });
@@ -26,7 +32,6 @@ export function subscribeAuth(listener: AuthListener): () => void {
 
 export async function signOut(): Promise<void> {
   const results = await Promise.allSettled([
-    auth().signOut(),
     jsSignOut(jsAuth),
     GoogleSignin.signOut(),
   ]);
@@ -50,9 +55,9 @@ export async function deleteAccount(): Promise<void> {
     (result as { idToken?: string | null }).idToken ??
     null;
   if (!idToken) throw new Error('Google não devolveu o token de identidade.');
-  const credential = GoogleAuthProvider.credential(idToken);
-  const currentUser = auth().currentUser;
+  const credential = JSGoogleAuthProvider.credential(idToken);
+  const currentUser = jsAuth.currentUser;
   if (!currentUser) throw new Error('Usuário não autenticado.');
-  await currentUser.reauthenticateWithCredential(credential);
-  await currentUser.delete();
+  await reauthenticateWithCredential(currentUser, credential);
+  await deleteUser(currentUser);
 }

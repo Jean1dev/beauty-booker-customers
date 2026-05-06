@@ -2,10 +2,6 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useGoogleSignIn } from '@/platform/google-auth.native';
 
-// ── Call-order tracker ────────────────────────────────────────────────────────
-
-const callOrder: string[] = [];
-
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
 const mockHasPlayServices = jest.fn();
@@ -28,34 +24,13 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
   },
 }));
 
-const mockRnfbSignIn  = jest.fn();
-const mockRnfbSignOut = jest.fn();
-
-jest.mock('@react-native-firebase/auth', () => {
-  const instance = {
-    signInWithCredential: (...args: unknown[]) => mockRnfbSignIn(...args),
-    signOut:              (...args: unknown[]) => mockRnfbSignOut(...args),
-  };
-  const authFn = jest.fn(() => instance);
-  (authFn as any).GoogleAuthProvider = {
-    credential: jest.fn((idToken: string) => ({ type: 'google', idToken })),
-  };
-  return {
-    __esModule: true,
-    default:            authFn,
-    GoogleAuthProvider: (authFn as any).GoogleAuthProvider,
-  };
-});
-
 const mockJsSignIn  = jest.fn();
-const mockJsSignOut = jest.fn();
 
 jest.mock('firebase/auth', () => ({
   GoogleAuthProvider: {
     credential: jest.fn((idToken: string) => ({ type: 'google-js', idToken })),
   },
   signInWithCredential: (...args: unknown[]) => mockJsSignIn(...args),
-  signOut:              (...args: unknown[]) => mockJsSignOut(...args),
 }));
 
 jest.mock('expo-constants', () => ({
@@ -83,99 +58,33 @@ function makeGoogleError(code: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  callOrder.length = 0;
 
   mockHasPlayServices.mockResolvedValue(true);
   mockGoogleSignInFn.mockResolvedValue(signInResult);
-  mockJsSignIn.mockImplementation(async () => { callOrder.push('js-sdk'); });
-  mockRnfbSignIn.mockImplementation(async () => { callOrder.push('rnfb'); });
+  mockJsSignIn.mockResolvedValue(undefined);
   mockGoogleSignOut.mockResolvedValue(undefined);
-  mockJsSignOut.mockResolvedValue(undefined);
-  mockRnfbSignOut.mockResolvedValue(undefined);
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('useGoogleSignIn — ordem de autenticação (fix race condition)', () => {
-  it('autentica JS SDK antes do RNFB para que Firestore esteja disponível quando onAuthStateChanged disparar', async () => {
-    const { result } = renderHook(() => useGoogleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(callOrder).toEqual(['js-sdk', 'rnfb']);
-  });
-
-  it('invocationCallOrder confirma: jsSignInWithCredential < auth().signInWithCredential', async () => {
+describe('useGoogleSignIn — autenticação via JS SDK', () => {
+  it('chama jsSignInWithCredential uma única vez em sign-in bem-sucedido', async () => {
     const { result } = renderHook(() => useGoogleSignIn());
 
     await act(async () => { await result.current.signIn(); });
 
     expect(mockJsSignIn).toHaveBeenCalledTimes(1);
-    expect(mockRnfbSignIn).toHaveBeenCalledTimes(1);
-    expect(mockJsSignIn.mock.invocationCallOrder[0])
-      .toBeLessThan(mockRnfbSignIn.mock.invocationCallOrder[0]);
   });
 
-  it('ambos os SDKs são chamados em um sign-in bem-sucedido', async () => {
+  it('passa o idToken correto para o JS SDK', async () => {
     const { result } = renderHook(() => useGoogleSignIn());
 
     await act(async () => { await result.current.signIn(); });
 
-    expect(mockJsSignIn).toHaveBeenCalledTimes(1);
-    expect(mockRnfbSignIn).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('useGoogleSignIn — rollback quando RNFB falha', () => {
-  beforeEach(() => {
-    mockRnfbSignIn.mockRejectedValue(new Error('RNFB credential error'));
-  });
-
-  it('faz signOut no JS SDK para reverter a sessão', async () => {
-    const { result } = renderHook(() => useGoogleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(mockJsSignOut).toHaveBeenCalledTimes(1);
-  });
-
-  it('faz signOut no Google Sign-In para reverter a sessão', async () => {
-    const { result } = renderHook(() => useGoogleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(mockGoogleSignOut).toHaveBeenCalledTimes(1);
-  });
-
-  it('exibe alerta de erro ao usuário', async () => {
-    const { result } = renderHook(() => useGoogleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(mockShowAlert).toHaveBeenCalledWith('Erro', expect.any(String));
-  });
-});
-
-describe('useGoogleSignIn — JS SDK falha antes do RNFB', () => {
-  beforeEach(() => {
-    mockJsSignIn.mockRejectedValue(new Error('JS SDK network error'));
-  });
-
-  it('não chama RNFB quando JS SDK falha', async () => {
-    const { result } = renderHook(() => useGoogleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(mockRnfbSignIn).not.toHaveBeenCalled();
-  });
-
-  it('não faz rollback (RNFB nunca foi chamado)', async () => {
-    const { result } = renderHook(() => useGoogleSignIn());
-
-    await act(async () => { await result.current.signIn(); });
-
-    expect(mockJsSignOut).not.toHaveBeenCalled();
-    expect(mockRnfbSignOut).not.toHaveBeenCalled();
+    expect(mockJsSignIn).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ type: 'google-js', idToken }),
+    );
   });
 });
 
@@ -188,11 +97,9 @@ describe('useGoogleSignIn — estado de loading', () => {
   it('loading=true durante o sign-in e false ao terminar', async () => {
     let resolveJsSignIn!: () => void;
     mockJsSignIn.mockReturnValue(new Promise<void>(res => { resolveJsSignIn = res; }));
-    mockRnfbSignIn.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useGoogleSignIn());
 
-    // Start sign-in without awaiting so we can inspect intermediate state
     let signInDone = false;
     act(() => {
       result.current.signIn().then(() => { signInDone = true; });
@@ -200,7 +107,6 @@ describe('useGoogleSignIn — estado de loading', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(true));
 
-    // Unblock JS SDK and complete sign-in
     resolveJsSignIn();
     await waitFor(() => expect(signInDone).toBe(true));
     expect(result.current.loading).toBe(false);
@@ -263,7 +169,6 @@ describe('useGoogleSignIn — tratamento de erros', () => {
 
     expect(mockShowAlert).toHaveBeenCalledWith('Erro', expect.stringContaining('token'));
     expect(mockJsSignIn).not.toHaveBeenCalled();
-    expect(mockRnfbSignIn).not.toHaveBeenCalled();
   });
 
   it('exibe alerta para erros genéricos de rede', async () => {
