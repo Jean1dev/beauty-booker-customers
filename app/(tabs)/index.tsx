@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   useColorScheme,
   useWindowDimensions,
@@ -83,6 +84,7 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { top: topInset } = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const { professionals, favorites, loading, toggleFavorite } = useProfessionals();
 
   const c = {
@@ -102,11 +104,20 @@ export default function HomeScreen() {
 
   const favPros = professionals.filter((p) => favorites.has(p.userLink));
 
-  const filteredPros = activeCategory === 'all'
-    ? professionals
-    : professionals.filter((p) =>
-        proMatchesCategory(p, CATEGORIES.find((c) => c.id === activeCategory)?.label ?? ''),
-      );
+  const filteredPros = professionals.filter((p) => {
+    const matchesCategory =
+      activeCategory === 'all' ||
+      proMatchesCategory(p, CATEGORIES.find((c) => c.id === activeCategory)?.label ?? '');
+    if (!matchesCategory) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (p.displayName ?? '').toLowerCase().includes(q) ||
+      (p.name ?? '').toLowerCase().includes(q) ||
+      p.userLink.toLowerCase().includes(q) ||
+      (p.serviceCategory ?? '').toLowerCase().includes(q)
+    );
+  });
 
   const cardWidth = Math.min((width - 20 * 2 - 12) / 2, 220);
 
@@ -166,15 +177,20 @@ export default function HomeScreen() {
       </View>
 
       {/* ── Search bar ── */}
-      <TouchableOpacity
-        style={[styles.searchBar, { backgroundColor: c.surface, borderColor: c.border }]}
-        onPress={() => router.push('/(tabs)/agenda')}
-        activeOpacity={0.7}>
+      <View style={[styles.searchBar, { backgroundColor: c.surface, borderColor: c.border }]}>
         <IconSymbol name="magnifyingglass" size={16} color={c.textTertiary} />
-        <Text style={[styles.searchPlaceholder, { color: c.textTertiary }]}>
-          Buscar profissionais...
-        </Text>
-      </TouchableOpacity>
+        <TextInput
+          style={[styles.searchInput, { color: c.textPrimary }]}
+          placeholder="Buscar profissionais..."
+          placeholderTextColor={c.textTertiary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
+      </View>
 
       {/* ── Favoritas ── */}
       {favPros.length > 0 && (
@@ -471,10 +487,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  searchPlaceholder: {
+  searchInput: {
+    flex: 1,
     fontFamily: 'DMSans_400Regular',
     fontSize: 14,
     letterSpacing: 0.1,
+    paddingVertical: 0,
   },
 
   // Favorites row
