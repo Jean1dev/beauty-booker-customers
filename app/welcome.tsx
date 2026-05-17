@@ -1,4 +1,3 @@
-import * as WebBrowser from 'expo-web-browser';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -30,10 +29,6 @@ export default function WelcomeScreen() {
     accent:        dark ? Palette.rose[400]     : Palette.rose[500],
     accentShadow:  dark ? 'rgba(217,126,122,0.20)' : 'rgba(196,92,88,0.25)',
   };
-
-  async function handleBookingLink() {
-    await WebBrowser.openBrowserAsync('https://beautybooker.app');
-  }
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg, paddingTop: topInset }]}>
@@ -87,14 +82,6 @@ export default function WelcomeScreen() {
 
           <AppleSignInButton />
 
-          <TouchableOpacity
-            style={[styles.btnSecondary, { borderColor: colors.border }]}
-            onPress={handleBookingLink}
-            activeOpacity={0.7}>
-            <Text style={[styles.btnSecondaryText, { color: colors.textSecondary }]}>
-              Tenho um link de agendamento
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* ── Footer ── */}
@@ -223,20 +210,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     letterSpacing: 0.3,
   },
-  btnSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 999,
-    height: 52,
-    borderWidth: 1,
-  },
-  btnSecondaryText: {
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 14,
-    letterSpacing: 0.2,
-  },
-
   // Footer
   footer: {
     fontFamily: 'DMSans_400Regular',
