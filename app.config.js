@@ -40,7 +40,7 @@ export default () => {
     expo: {
       name: 'beauty-book-customers',
       slug: 'beauty-book-customers',
-      version: '1.0.0',
+      version: '1.1.0',
       orientation: 'portrait',
       icon: './assets/images/icon.png',
       scheme: 'beautybookcustomers',
