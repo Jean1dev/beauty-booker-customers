@@ -246,6 +246,9 @@ export default function HomeScreen() {
         })}
       </ScrollView>
 
+      {/* ── Inspirações card ── */}
+      <InspiracoesBanner colors={c} />
+
       {/* ── Em destaque ── */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: c.textPrimary }]}>Em destaque</Text>
@@ -297,6 +300,48 @@ export default function HomeScreen() {
       </View>
 
     </ScrollView>
+  );
+}
+
+// ─── Inspirações Banner ──────────────────────────────────────────────────────
+
+// Preview gradients for the strip (matches the first 5 works in inspiracoes.tsx)
+const PREVIEW_GRADS: [string, string][] = [
+  ['#E8A8A3', '#7A2422'],
+  ['#E6D8C4', '#4A3A28'],
+  ['#E2C9D2', '#5A2230'],
+  ['#F2CDCA', '#8A2927'],
+  ['#E2C56A', '#6B4A12'],
+];
+
+function InspiracoesBanner({ colors: c }: { colors: ProColors }) {
+  return (
+    <TouchableOpacity
+      style={[styles.inspCard, { backgroundColor: c.surface, borderColor: c.border }]}
+      onPress={() => router.push('/inspiracoes')}
+      activeOpacity={0.85}>
+      {/* header row */}
+      <View style={styles.inspCardHeader}>
+        <View style={styles.inspCardLeft}>
+          <Text style={[styles.inspCardSparkle, { color: c.textTertiary }]}>✦</Text>
+          <View>
+            <Text style={[styles.inspCardTitle, { color: c.textPrimary }]}>Inspirações</Text>
+            <Text style={[styles.inspCardSub, { color: c.textSecondary }]}>Trabalhos das profissionais</Text>
+          </View>
+        </View>
+        <Text style={[styles.inspCardVerTudo, { color: c.accent }]}>Ver tudo ›</Text>
+      </View>
+
+      {/* preview strip */}
+      <View style={styles.inspStrip}>
+        {PREVIEW_GRADS.map((grad, idx) => (
+          <View key={idx} style={[styles.inspStripTile, { backgroundColor: grad[0] }]}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: grad[1], opacity: 0.6, top: '40%' }]} />
+            <Text style={styles.inspStripSparkle}>✦</Text>
+          </View>
+        ))}
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -652,6 +697,67 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     letterSpacing: 0.1,
+  },
+
+  // Inspirações card
+  inspCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  inspCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
+  },
+  inspCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  inspCardSparkle: {
+    fontSize: 16,
+  },
+  inspCardTitle: {
+    fontFamily: 'CormorantGaramond_400Regular',
+    fontSize: 19,
+    lineHeight: 22,
+  },
+  inspCardSub: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 11,
+    letterSpacing: 0.1,
+    marginTop: 1,
+  },
+  inspCardVerTudo: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    letterSpacing: 0.1,
+  },
+  inspStrip: {
+    flexDirection: 'row',
+  },
+  inspStripTile: {
+    flex: 1,
+    aspectRatio: 1,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inspStripSparkle: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.8)',
+    position: 'absolute',
+    top: 5,
+    right: 5,
   },
 
   // Banner
